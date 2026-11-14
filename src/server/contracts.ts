@@ -50,7 +50,7 @@ export interface CreateHoldInput {
 
 export interface HoldResult {
   bookingId: string;
-  /** Raw manage-booking token, shown only once. Only its hash is stored. */
+  /** Stateless manage-booking token (see src/server/manage-token.ts). Safe to rebuild any time from the booking id. */
   manageToken: string;
   holdExpiresAt: Date;
   totalCents: number;

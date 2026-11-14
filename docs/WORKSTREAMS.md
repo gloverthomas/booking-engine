@@ -35,6 +35,8 @@ Shared, owned by the integrator (read-only for you): `src/db/**` (except D's aut
 ## How modules talk
 
 - **Contracts:** `src/server/contracts.ts` defines the shared types. Stubs in `src/server/{availability,booking,payments}/index.ts` define function signatures so every workstream compiles in isolation. Call those functions; the real implementations arrive at merge.
-- **Events:** state changes emit `DomainEvent`s (`src/server/events.ts`) in the same transaction. The worker relays each event to the consumer queues `consumer.notifications`, `consumer.google`, `consumer.xero`. Each consumer handler ignores event types it does not handle and must be idempotent.
+- **Events:** state changes emit `DomainEvent`s (`src/server/events.ts`) in the same transaction. The worker relays each event to the consumer queues `consumer.payments`, `consumer.notifications`, `consumer.google`, `consumer.xero`. Each consumer handler ignores event types it does not handle and must be idempotent.
 - **Auth guard:** admin routes and server actions call `requireOwner()` from `src/server/auth/index.ts` (D owns it; until D lands, treat it as `() => Promise<{ userId: string }>` and import it, D's stub exists below).
+- **Manage-booking links** are stateless: `makeManageToken(bookingId, ENCRYPTION_KEY)` / `verifyManageToken` in `src/server/manage-token.ts`. Build the link as `${APP_URL}/manage/${token}`. The `manage_token_hash` column is unused.
+- **Stub signatures may gain optional trailing parameters** (e.g. an injected client or `now`) but must not change otherwise.
 - **Audit:** every staff or MCP mutation writes an `audit_log` row via `recordAudit(db, ...)` from `src/server/audit.ts` (integrator provides).

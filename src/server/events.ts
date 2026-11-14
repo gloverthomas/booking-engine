@@ -10,16 +10,19 @@ export type DomainEvent =
       bookingId: string;
       by: "client" | "staff";
       depositAction: "refund" | "keep" | "none";
+      /** Extra fee to charge the saved card; 0 when none. */
+      feeCents: number;
     }
   | { type: "booking.rescheduled"; bookingId: string; previousStart: string; notifyClient: boolean }
   | { type: "booking.completed"; bookingId: string }
-  | { type: "booking.no_show"; bookingId: string }
+  | { type: "booking.no_show"; bookingId: string; feeCents: number }
   | { type: "payment.succeeded"; paymentId: string }
   | { type: "payment.refunded"; paymentId: string }
   | { type: "client.updated"; clientId: string };
 
 /** Queues that receive every event. Each consumer handler ignores the types it does not handle. */
 export const EVENT_CONSUMERS = [
+  "consumer.payments",
   "consumer.notifications",
   "consumer.google",
   "consumer.xero",
