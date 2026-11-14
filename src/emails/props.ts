@@ -43,6 +43,16 @@ export interface BookingMovedProps extends BaseProps, AppointmentProps {
 
 export type DepositOutcome = "refund" | "keep" | "none";
 
+export interface FeeChargedProps extends BaseProps {
+  dateLabel: string;
+  timeLabel: string;
+  locationName: string;
+  kind: "no_show_fee" | "late_cancel_fee";
+  /** Display amount charged to the card on file. */
+  feeLabel: string;
+  policyText: string;
+}
+
 export interface BookingCancelledProps extends BaseProps {
   dateLabel: string;
   timeLabel: string;

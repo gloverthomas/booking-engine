@@ -3,6 +3,7 @@ import type {
   BookingConfirmationProps,
   BookingMovedProps,
   DepositOutcome,
+  FeeChargedProps,
   InvoiceEmailProps,
   OwnerAlertKind,
   OwnerAlertProps,
@@ -109,6 +110,23 @@ export function cancelledProps(
     feeLabel: details.feeCents > 0 ? formatMoney(details.feeCents) : null,
     policyText: policyTextFor(ctx),
     rebookUrl,
+  };
+}
+
+export function feeChargedProps(
+  ctx: BookingContext,
+  kind: FeeChargedProps["kind"],
+  amountCents: number,
+): FeeChargedProps {
+  const { dateLabel, timeLabel } = appointment(ctx);
+  return {
+    ...base(ctx),
+    dateLabel,
+    timeLabel,
+    locationName: ctx.location.name,
+    kind,
+    feeLabel: formatMoney(amountCents),
+    policyText: policyTextFor(ctx),
   };
 }
 

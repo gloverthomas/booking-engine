@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { eq } from "drizzle-orm";
-import { booking, business, messageLog } from "@/db/schema";
+import { booking, business, messageLog, payment } from "@/db/schema";
 import {
   REMINDER_QUEUE,
   handleNotificationEvent,
@@ -40,6 +40,59 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   await h.close();
+});
+
+describe("payment.succeeded (fee charged)", () => {
+  async function feePayment(
+    bookingId: string,
+    over: Partial<typeof payment.$inferInsert> = {},
+  ): Promise<string> {
+    const [row] = await h.db
+      .insert(payment)
+      .values({
+        bookingId,
+        kind: "no_show_fee",
+        method: "stripe_online",
+        status: "succeeded",
+        amountCents: 2500,
+        ...over,
+      })
+      .returning();
+    return row.id;
+  }
+
+  test("emails the client once when a no-show fee is charged", async () => {
+    const id = await createBooking(h);
+    const paymentId = await feePayment(id);
+    const event = { eventId: "e1", type: "payment.succeeded", paymentId };
+
+    await handleNotificationEvent(ctx, event);
+    await handleNotificationEvent(ctx, event);
+
+    expect(h.email.sent).toHaveLength(1);
+    expect(h.email.sent[0].subject).toMatch(/missed-appointment fee of \$25\.00/);
+    expect(h.sms.sent).toHaveLength(0);
+  });
+
+  test("ignores deposits, refunds, unmatched and unsucceeded payments", async () => {
+    const id = await createBooking(h);
+    for (const over of [
+      { kind: "deposit" as const },
+      { kind: "refund" as const },
+      { status: "failed" as const },
+      { bookingId: null },
+    ]) {
+      await handleNotificationEvent(ctx, {
+        type: "payment.succeeded",
+        paymentId: await feePayment(id, over),
+      });
+    }
+    await handleNotificationEvent(ctx, {
+      type: "payment.succeeded",
+      paymentId: "00000000-0000-4000-8000-000000000000",
+    });
+    expect(h.email.sent).toHaveLength(0);
+  });
 });
 
 describe("booking.confirmed", () => {

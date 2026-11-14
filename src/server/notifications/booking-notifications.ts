@@ -1,9 +1,12 @@
+import { eq } from "drizzle-orm";
 import {
   renderBookingCancelled,
   renderBookingConfirmation,
   renderBookingMoved,
+  renderFeeCharged,
   renderOwnerAlert,
 } from "@/emails";
+import { payment } from "@/db/schema";
 import type { Db } from "../db-types";
 import { loadBookingContext, type BookingContext } from "./booking-context";
 import {
@@ -20,6 +23,7 @@ import { buildIcs } from "./ics";
 import {
   cancelledProps,
   confirmationProps,
+  feeChargedProps,
   movedProps,
   ownerAlertProps,
   type CancellationDetails,
@@ -209,6 +213,36 @@ export async function notifyBookingCancelled(
         renderOwnerAlert(
           ownerAlertProps(ctx, "cancelled", { depositAction: details.depositAction }),
         ),
+    }),
+  ]);
+}
+
+/**
+ * Tells the client a late-cancel or no-show fee was actually charged to their card. Only fires for a
+ * succeeded fee payment on a booking; every other payment is ignored. Replays do not resend.
+ */
+export async function notifyFeeCharged(
+  db: Db,
+  paymentId: string,
+  deps: NotificationDeps,
+): Promise<LoggedSendResult[]> {
+  const [row] = await db.select().from(payment).where(eq(payment.id, paymentId));
+  if (!row || !row.bookingId || row.status !== "succeeded") return [];
+  if (row.kind !== "no_show_fee" && row.kind !== "late_cancel_fee") return [];
+  const kind = row.kind;
+  const ctx = await load(db, deps, row.bookingId, "fee_charged");
+  if (!ctx) return [];
+
+  return runAll([
+    clientEmailTask({
+      db,
+      deps,
+      ctx,
+      template: "fee_charged",
+      dedupeBase: `fee-${paymentId}`,
+      build: async () => ({
+        rendered: await renderFeeCharged(feeChargedProps(ctx, kind, row.amountCents)),
+      }),
     }),
   ]);
 }

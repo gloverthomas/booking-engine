@@ -3,6 +3,7 @@ import { render } from "@react-email/render";
 import { BookingCancelled, cancelledSubject } from "./BookingCancelled";
 import { BookingConfirmation, confirmationSubject } from "./BookingConfirmation";
 import { BookingMoved, movedSubject } from "./BookingMoved";
+import { FeeCharged, feeChargedSubject } from "./FeeCharged";
 import { InvoiceEmail, invoiceSubject } from "./InvoiceEmail";
 import { OneOffMessage } from "./OneOffMessage";
 import { OwnerAlert, ownerAlertSubject } from "./OwnerAlert";
@@ -10,6 +11,7 @@ import type {
   BookingCancelledProps,
   BookingConfirmationProps,
   BookingMovedProps,
+  FeeChargedProps,
   InvoiceEmailProps,
   OneOffMessageProps,
   OwnerAlertProps,
@@ -44,6 +46,10 @@ export function renderBookingMoved(p: BookingMovedProps): Promise<RenderedEmail>
 
 export function renderBookingCancelled(p: BookingCancelledProps): Promise<RenderedEmail> {
   return renderTemplate(cancelledSubject(p), createElement(BookingCancelled, p));
+}
+
+export function renderFeeCharged(p: FeeChargedProps): Promise<RenderedEmail> {
+  return renderTemplate(feeChargedSubject(p), createElement(FeeCharged, p));
 }
 
 export function renderInvoiceEmail(p: InvoiceEmailProps): Promise<RenderedEmail> {

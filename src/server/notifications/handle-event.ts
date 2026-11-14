@@ -3,6 +3,7 @@ import type { Db } from "../db-types";
 import { loadBookingContext } from "./booking-context";
 import {
   notifyBookingCancelled,
+  notifyFeeCharged,
   notifyBookingConfirmed,
   notifyBookingMoved,
   sendBookingReminder,
@@ -38,6 +39,7 @@ const eventSchema = z.discriminatedUnion("type", [
     previousStart: z.string(),
     notifyClient: z.boolean(),
   }),
+  z.object({ type: z.literal("payment.succeeded"), paymentId: z.uuid() }),
   z.object({
     type: z.literal("booking.cancelled"),
     bookingId: z.uuid(),
@@ -118,6 +120,9 @@ export async function handleNotificationEvent(
       await scheduleReminder(context, event.bookingId);
       return;
     }
+    case "payment.succeeded":
+      await notifyFeeCharged(db, event.paymentId, deps);
+      return;
     case "booking.cancelled":
       await notifyBookingCancelled(
         db,
