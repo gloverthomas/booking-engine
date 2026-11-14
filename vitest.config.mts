@@ -21,8 +21,6 @@ export default defineConfig({
         "src/server/contracts.ts",
         "src/server/db-types.ts",
         // Stubs: the owning workstream deletes its line when it replaces the stub with real code.
-        "src/server/availability/index.ts",
-        "src/server/booking/index.ts",
         "src/server/payments/index.ts",
         "src/server/notifications/index.ts",
         "src/server/auth/index.ts",
