@@ -23,13 +23,11 @@ export default defineConfig({
         // Stubs: the owning workstream deletes its line when it replaces the stub with real code.
         "src/server/availability/index.ts",
         "src/server/booking/index.ts",
-        "src/server/payments/index.ts",
         "src/server/notifications/index.ts",
         "src/server/auth/index.ts",
         "src/worker/handlers/notifications.ts",
         "src/worker/handlers/google.ts",
         "src/worker/handlers/xero.ts",
-        "src/worker/handlers/payments.ts",
         "src/worker/handlers/relay.ts",
       ],
       thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
