@@ -19,7 +19,7 @@ Status: **draft for review**. Nothing is built yet. Sections marked **VERIFY** r
 7. **Xero**: contacts, invoices and payments pushed automatically.
 8. **An MCP server** so Ryan can run the business from Claude: ask questions ("who's booked Saturday?", "how did last month compare?") and make changes ("block out next Friday", "move Sam to 3pm") in plain English (§10a).
 
-**Non-goals for v1** (cheap to add later, expensive to build now): multi-tenant SaaS, multiple staff with separate logins, client accounts/passwords, marketing campaigns, gift cards, retail/products, packages/memberships, waitlist, native mobile apps.
+**Non-goals for v1** (cheap to add later, expensive to build now): multi-tenant SaaS, client accounts/passwords, marketing campaigns, gift cards, retail/products, packages/memberships, waitlist. **In-person card payments and team features are planned immediately after launch** (§13a), and v1 is designed so they slot in without a rewrite. Timely feature-by-feature scope is in §13a.
 
 **The success test:** Ryan can cancel Timely, and nothing he relies on stops working.
 
@@ -162,7 +162,7 @@ Ryan's policy maps cleanly onto Stripe:
 - **Cancel/reschedule outside the window (≥24h):** free. Refund deposit (or move it to the new time on reschedule). Configurable: refund vs credit. Note Stripe generally doesn't return its processing fee on refunds.
 - **Cancel inside the window:** deposit is **kept** (no new charge needed) — this is the policy as written. Optionally charge an additional fee off-session using the saved card (configurable amount/percentage).
 - **No-show:** admin clicks "No-show" → keeps deposit, optional off-session charge for the remainder or a fixed fee. Off-session charges can still need customer authentication; build the "payment failed → send pay-link by SMS" fallback.
-- **Balance at the appointment:** admin "Check out" screen records method (cash / EFTPOS / other / Stripe link), applies a **cash discount** if configured, and closes the booking. Taking the balance by card later (Stripe Terminal / Tap to Pay) is a possible v2.
+- **Balance at the appointment:** admin "Check out" screen records method (cash / EFTPOS / other / Stripe link), applies a **cash discount** if configured, and closes the booking. In-person card payments (Tap to Pay on iPhone) are planned right after launch; see §13a.
 - **Webhooks are the source of truth** (`payment_intent.succeeded`, `charge.refunded`, `charge.dispute.created`, etc.), verified and deduplicated.
 - **Chargebacks:** surface disputes in the admin; keep policy acceptance + message logs as evidence.
 
@@ -266,23 +266,76 @@ A remote MCP server, shipped as part of the same app (`/mcp`, Streamable HTTP), 
 
 Sizes: S ≈ a few days, M ≈ ~1 week, L ≈ 2+ weeks of focused work. Rough total for v1: **~8–12 weeks part-time**; the order matters more than the estimate.
 
-| #   | Milestone                                                                                                                                                                       | Size | Exit criteria                                                                                                    |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ---------------------------------------------------------------------------------------------------------------- |
-| 0   | **Foundations**: repo, CI (lint/type/test), env/secrets, Postgres + Drizzle, deploy skeleton (web + worker), Sentry, admin auth                                                 | S    | Hello-world deployed with login; CI green                                                                        |
-| 1   | **Domain + availability engine** (pure, test-first): rules, blocks, buffers, DST                                                                                                | M    | Property/unit tests incl. DST; exclusion constraint proven by test                                               |
-| 2   | **Public booking flow** (no payment): all steps, holds, Turnstile, brand styling, seed his real services/locations                                                              | M    | Can book end-to-end on staging; Playwright E2E + screenshots at 320/768/1024/1440                                |
-| 3   | **Stripe deposit** + webhooks + hold expiry + **confirmation email** (+ ICS)                                                                                                    | M    | Real test-mode payment confirms a booking; refunds work; no double-bookings under concurrent test                |
-| 4   | **Admin portal core**: calendar, booking drawer, clients, services, hours, time off                                                                                             | L    | Ryan can run a day from his phone on staging                                                                     |
-| 5   | **Cancel/reschedule/no-show + fee logic** + magic-link "manage my booking"                                                                                                      | M    | Every policy branch covered by tests and a manual script                                                         |
-| 6   | **SMS**: provider adapter, confirmation, reminders (reschedule-safe), message log; start sender-ID registration in M0/M1                                                        | M    | Reminder fires at T−24h and is cancelled on reschedule                                                           |
-| 7   | **Google Calendar** two-way sync                                                                                                                                                | M    | Personal event blocks slots; bookings appear as events; no echo loops                                            |
-| 8   | **Xero** sync (contacts, invoices, payments, PDF) + retry queue                                                                                                                 | M–L  | Demo Company reconciles; failed pushes retry and surface                                                         |
-| 9   | **Reports**                                                                                                                                                                     | M    | Numbers match Stripe/Xero for a test month                                                                       |
-| 10  | **Migration + parallel run + cutover**: import Timely client CSV, run both systems against the shared Google Calendar for 2–4 weeks, swap the website embed, then cancel Timely | M    | Zero missed/double bookings during parallel run; Ryan signs off                                                  |
-| 10a | **MCP server** (§10a): OAuth, read tools first, then confirm-gated write tools, audit log, safety tests. Can start once M4/M5 service functions exist                           | M    | Ryan can ask "what's on Saturday?" and "block next Friday" from Claude; all writes audited; injection tests pass |
-| 11  | **Hardening**: load test, security review, backup/restore drill, accessibility audit, runbook                                                                                   | S–M  | Restore drill passed; a11y checks clean                                                                          |
+| #   | Milestone                                                                                                                                                                       | Size  | Exit criteria                                                                                                    |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------- |
+| 0   | **Foundations**: repo, CI (lint/type/test), env/secrets, Postgres + Drizzle, deploy skeleton (web + worker), Sentry, admin auth                                                 | S     | Hello-world deployed with login; CI green                                                                        |
+| 1   | **Domain + availability engine** (pure, test-first): rules, blocks, buffers, DST                                                                                                | M     | Property/unit tests incl. DST; exclusion constraint proven by test                                               |
+| 2   | **Public booking flow** (no payment): all steps, holds, Turnstile, brand styling, seed his real services/locations                                                              | M     | Can book end-to-end on staging; Playwright E2E + screenshots at 320/768/1024/1440                                |
+| 3   | **Stripe deposit** + webhooks + hold expiry + **confirmation email** (+ ICS)                                                                                                    | M     | Real test-mode payment confirms a booking; refunds work; no double-bookings under concurrent test                |
+| 4   | **Admin portal core**: calendar, booking drawer, clients, services, hours, time off                                                                                             | L     | Ryan can run a day from his phone on staging                                                                     |
+| 5   | **Cancel/reschedule/no-show + fee logic** + magic-link "manage my booking"                                                                                                      | M     | Every policy branch covered by tests and a manual script                                                         |
+| 6   | **SMS**: provider adapter, confirmation, reminders (reschedule-safe), message log; start sender-ID registration in M0/M1                                                        | M     | Reminder fires at T−24h and is cancelled on reschedule                                                           |
+| 7   | **Google Calendar** two-way sync                                                                                                                                                | M     | Personal event blocks slots; bookings appear as events; no echo loops                                            |
+| 8   | **Xero** sync (contacts, invoices, payments, PDF) + retry queue                                                                                                                 | M–L   | Demo Company reconciles; failed pushes retry and surface                                                         |
+| 9   | **Reports**                                                                                                                                                                     | M     | Numbers match Stripe/Xero for a test month                                                                       |
+| 10  | **Migration + parallel run + cutover**: import Timely client CSV, run both systems against the shared Google Calendar for 2–4 weeks, swap the website embed, then cancel Timely | M     | Zero missed/double bookings during parallel run; Ryan signs off                                                  |
+| 10a | **MCP server** (§10a): OAuth, read tools first, then confirm-gated write tools, audit log, safety tests. Can start once M4/M5 service functions exist                           | M     | Ryan can ask "what's on Saturday?" and "block next Friday" from Claude; all writes audited; injection tests pass |
+| 11  | **Hardening**: load test, security review, backup/restore drill, accessibility audit, runbook                                                                                   | S–M   | Restore drill passed; a11y checks clean                                                                          |
+| 12  | **In-person payments** (§13a): QR / Apple Pay pay-link at checkout, unmatched-payment reconciliation for Stripe Tap to Pay, then optional native iOS app with Stripe Terminal   | S → L | Ryan can take the balance on his iPhone and the booking closes itself, with Xero payment recorded                |
+| 13  | **Team features** (§13a): staff logins and roles, rosters, per-staff services and pricing, timesheets, targets and performance dashboard, staff PWA                             | L     | A second staff member can log in, see only their own calendar, and be booked, paid and reported on independently |
 
 **Cutover safety:** keep Timely live until the parallel run proves the new system. Existing future Timely bookings stay in Timely (visible via the shared Google Calendar); new ones go to the new system. Don't try to migrate in-flight deposits.
+
+## 13a. Timely feature parity and post-launch roadmap
+
+**v1** = parity with what Ryan uses today (§1). **Next** = planned immediately after cutover. **Later** = only if Ryan confirms he uses it. **No** = deliberately not building. _This table is a proposal: confirm each row with Ryan before we commit._
+
+| Timely feature                                                                                                         | Plan                                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 24/7 online booking, appointment calendar, multiple locations                                                          | **v1**                                                                                |
+| Deposits, cancellation fees, cards on file                                                                             | **v1**                                                                                |
+| Email + SMS confirmations and reminders; one-off messages                                                              | **v1**                                                                                |
+| Client profiles, history, notes                                                                                        | **v1**                                                                                |
+| Business, financial, appointment, client reports                                                                       | **v1**                                                                                |
+| Xero, Google Calendar, embed on any website, custom payment types, activity log                                        | **v1**                                                                                |
+| Instagram / Facebook / Messenger book buttons                                                                          | **v1** (links to the booking page)                                                    |
+| Tips, promo codes, end-of-day cash-up, client blocking, VIP-only services, service extra questions, service categories | **v1.1** (small)                                                                      |
+| **In-person payments** (Tap to Pay on iPhone)                                                                          | **Next**, M12                                                                         |
+| **Team features** (staff logins, rosters, timesheets, seniority pricing, targets, staff app, staff notifications)      | **Next**, M13                                                                         |
+| Client photos and scanned documents                                                                                    | Later                                                                                 |
+| Waitlist; client login/rebook; rebooking, win-back, thank-you, review and aftercare messages                           | Later (reuses the job and SMS plumbing)                                               |
+| Two-way SMS number; outgoing webhooks / Zapier                                                                         | Later                                                                                 |
+| Packages, gift vouchers, loyalty rewards                                                                               | Later (needs balance tracking and accounting treatment)                               |
+| Stock and inventory; email/SMS marketing campaigns, Mailchimp                                                          | No for now                                                                            |
+| Reserve with Google                                                                                                    | No (needs Google partner approval; use a booking link on the Google Business Profile) |
+| Timely card readers and POS hardware                                                                                   | No (replaced by Stripe Tap to Pay / Terminal, below)                                  |
+
+### In-person payments (M12): collecting card payments on an iPhone
+
+Tap to Pay on iPhone lets Ryan's iPhone act as the card reader (contactless cards and Apple Pay/Google Pay wallets, no extra hardware). Stripe supports it in Australia (**VERIFY** device and iOS requirements on Stripe's current page). iPads can't do it, and a web page or PWA can't read NFC cards, so the options step up in effort:
+
+1. **Pay-link / QR at checkout (build in v1, no hardware).** The admin "Check out" screen creates a Stripe PaymentIntent for the balance and shows a QR code or sends an SMS link. The client pays with Apple Pay on their own phone. Standard online card rates; booking closes and Xero updates automatically.
+2. **Stripe Dashboard app, Tap to Pay (no code, usable on day one).** Ryan installs Stripe's own iOS app, signs in to his Stripe account and taps cards on his iPhone. These payments are standalone, so our system adds an **"unmatched payments" tray**: in-person Stripe payments that arrive by webhook are suggested against that day's open bookings by amount and time, and Ryan confirms with one tap. This links them to the booking and Xero.
+3. **Our own iOS app with the Stripe Terminal SDK (the integrated version).** Checkout pre-fills the balance, taps the phone, closes the booking, records the Xero payment and handles tips, with no matching step. It needs: an **Apple Developer account** (paid annually), Apple's **Tap to Pay on iPhone entitlement** (an approval request), and App Store or private distribution. Stripe's Terminal React Native SDK supports Tap to Pay on iPhone, so a small **Expo app** that reuses our API is the likely shape (**VERIFY**). Only build this if options 1 and 2 prove too clunky.
+
+Android (Tap to Pay on Android) works the same way via the Terminal SDK. Dedicated card readers (Stripe Reader S700 / WisePOS E) are an alternative for a counter setup, since they work from a web page.
+
+### Team features (M13)
+
+Ryan is one stylist today, so v1 ships single-staff but **keeps these seams open** so M13 doesn't touch the booking core:
+
+- Everything that belongs to a person carries `staff_id`: bookings, availability rules, time blocks, Google Calendar connection, payments.
+- `service_staff` already maps who offers what; add `price_cents` / `duration_min` overrides there, and always resolve price through one function `priceFor(service, staff)`. **Seniority pricing** then becomes a `staff.level` with a price tier, with no change to the booking flow.
+- Admin auth has a **role** from day one (`owner` now; `staff`, `reception` later). Every query is scoped by role, so a stylist only ever sees their own calendar and clients as the rules dictate.
+- The public flow already supports "choose a stylist / first available" behind a setting that is off while there is one stylist.
+
+M13 then adds:
+
+- **Logins and access levels** (owner / manager / stylist / reception) with per-role permissions, optional PIN lock on shared devices.
+- **Rosters** (weekly pattern plus exceptions per staff and location) and **timesheets** (clock in/out, approvals, export for payroll).
+- **Targets and performance dashboard** (weekly/monthly revenue, utilisation, rebook rate per staff).
+- **Staff PWA** (their own day view, check-out, notifications) and **automatic appointment notifications** to staff.
+- Reports extended with per-staff breakdowns. Commission/payroll calculation is **not** included unless Ryan asks.
 
 ## 14. Main risks
 
