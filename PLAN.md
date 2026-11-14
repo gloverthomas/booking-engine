@@ -17,6 +17,7 @@ Status: **draft for review**. Nothing is built yet. Sections marked **VERIFY** r
 5. Admin portal: **calendar view**, bookings, clients, services, hours, reporting.
 6. **Google Calendar** two-way sync.
 7. **Xero**: contacts, invoices and payments pushed automatically.
+8. **An MCP server** so Ryan can run the business from Claude: ask questions ("who's booked Saturday?", "how did last month compare?") and make changes ("block out next Friday", "move Sam to 3pm") in plain English (§10a).
 
 **Non-goals for v1** (cheap to add later, expensive to build now): multi-tenant SaaS, multiple staff with separate logins, client accounts/passwords, marketing campaigns, gift cards, retail/products, packages/memberships, waitlist, native mobile apps.
 
@@ -24,44 +25,45 @@ Status: **draft for review**. Nothing is built yet. Sections marked **VERIFY** r
 
 ## 2. What the screenshots and invoice tell us
 
-| Observation | Implication |
-|---|---|
-| 5 services (45m/$95, 15m/$30, 60m/$126, 20m/$45, 30m/$65), multi-select | Services have duration + price; a booking has 1..n services; total duration = sum |
-| Slots every 15 min (2:30, 2:45, 3:00, 3:15) | Slot grid is configurable, default 15 min |
-| 2 locations (Northside – Lola Fortune; Southside – High Barber) | Availability is **per location**; he likely works different days at each |
-| Policy: "bookings may be moved 15min either side, not within 48h" | Admin needs a "shift booking" action that notifies the client |
-| Policy: 50% deposit deducted from service; forfeited if cancelled < 24h | Deposit is real money collected up front; "forfeit" = simply don't refund |
-| "Cash discount available" | Checkout screen needs payment method + discount; invoice must reflect it |
-| Invoice #2564 shows an ABN, **tax N/A, $0.00 GST**, line "Deposit for Maintenance Haircut on <date>", payment type "TimelyPay" | Ryan is probably **not GST-registered** → Xero tax type must be "No GST / BAS Excluded", not 10% GST. **Confirm with him/his accountant.** |
-| Timely invoices the *deposit* as its own tax invoice | Open question (§12): one invoice per booking with deposit applied as a part-payment is cleaner in Xero |
-| Timely flow includes: Cloudflare Turnstile, phone OTP login, Facebook/Google login, "continue as guest", pronouns, other phone, company, comments, "booking for someone else", marketing opt-in, policy agreement | We keep the useful fields, drop the login wall (see §5) |
-| Emails come from `noreply@gettimely.com`, SMS from a branded sender | We send from his own domain; SMS needs sender registration (§8) |
+| Observation                                                                                                                                                                                                       | Implication                                                                                                                                |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 5 services (45m/$95, 15m/$30, 60m/$126, 20m/$45, 30m/$65), multi-select                                                                                                                                           | Services have duration + price; a booking has 1..n services; total duration = sum                                                          |
+| Slots every 15 min (2:30, 2:45, 3:00, 3:15)                                                                                                                                                                       | Slot grid is configurable, default 15 min                                                                                                  |
+| 2 locations (Northside – Lola Fortune; Southside – High Barber)                                                                                                                                                   | Availability is **per location**; he likely works different days at each                                                                   |
+| Policy: "bookings may be moved 15min either side, not within 48h"                                                                                                                                                 | Admin needs a "shift booking" action that notifies the client                                                                              |
+| Policy: 50% deposit deducted from service; forfeited if cancelled < 24h                                                                                                                                           | Deposit is real money collected up front; "forfeit" = simply don't refund                                                                  |
+| "Cash discount available"                                                                                                                                                                                         | Checkout screen needs payment method + discount; invoice must reflect it                                                                   |
+| Invoice #2564 shows an ABN, **tax N/A, $0.00 GST**, line "Deposit for Maintenance Haircut on <date>", payment type "TimelyPay"                                                                                    | Ryan is probably **not GST-registered** → Xero tax type must be "No GST / BAS Excluded", not 10% GST. **Confirm with him/his accountant.** |
+| Timely invoices the _deposit_ as its own tax invoice                                                                                                                                                              | Open question (§12): one invoice per booking with deposit applied as a part-payment is cleaner in Xero                                     |
+| Timely flow includes: Cloudflare Turnstile, phone OTP login, Facebook/Google login, "continue as guest", pronouns, other phone, company, comments, "booking for someone else", marketing opt-in, policy agreement | We keep the useful fields, drop the login wall (see §5)                                                                                    |
+| Emails come from `noreply@gettimely.com`, SMS from a branded sender                                                                                                                                               | We send from his own domain; SMS needs sender registration (§8)                                                                            |
 
 ## 3. Recommended stack
 
 One TypeScript codebase, one deployable, one database. Optimise for: cheap to run, one person can maintain it, boring technology.
 
-| Concern | Choice | Why |
-|---|---|---|
-| Language / framework | **TypeScript + Next.js (App Router)** | One app serves the public booking pages, the admin portal and API routes; matches the existing tooling in this workspace |
-| UI | Tailwind + Radix primitives (shadcn-style), **custom-themed to Ryan's brand** (peach/black, heavy grotesk) | Booking page should look like his site, not a template |
-| Calendar UI | **FullCalendar** (MIT time-grid views) | Drag/drop, day/week views, mobile-capable; avoid its premium resource-timeline plugin |
-| Database | **PostgreSQL** | Exclusion constraints prevent double-booking at the DB level (§6) |
-| ORM / migrations | **Drizzle** | Typed, SQL-close, simple migrations |
-| Admin auth | **Better Auth** (or Auth.js) with Google sign-in + owner allow-list | He's connecting Google anyway; no password to manage |
-| Customer identity | **Guest checkout + signed magic links** for "view/change my booking" | No accounts, no passwords, no OTP cost |
-| Background jobs | **pg-boss** (Postgres-backed queue) in a separate worker process | Reminders, retries, Xero sync, hold expiry; no extra SaaS |
-| Payments | **Stripe** (PaymentElement, PaymentIntents, webhooks) on **Ryan's own Stripe account** | No Connect needed for single tenant; card data never touches us (PCI SAQ-A) |
-| Email | **Resend** + React Email, sent from his domain (SPF/DKIM/DMARC), `.ics` attached | Cheap, good deliverability tooling |
-| SMS | Provider-agnostic `SmsProvider` interface; start with **ClickSend** or **Twilio** (AU) | Swappable if price/deliverability disappoint |
-| Calendar | **Google Calendar API** (OAuth, `events`, `freebusy`, push channels) | Two-way sync |
-| Accounting | **Xero Accounting API** (OAuth2, `xero-node`) | Contacts, invoices, payments |
-| Bot protection | **Cloudflare Turnstile** + per-IP/phone rate limits | Same as Timely, no user friction |
-| Time handling | Store UTC, render in `Australia/Melbourne` with Temporal/Luxon | DST changes (Oct/Apr) are the classic scheduling bug |
-| Testing | Vitest (unit), Playwright (E2E + visual), Stripe/Xero/Google sandboxes | Repo standards require 80%+ coverage and TDD |
-| Observability | Sentry (free tier), structured logs, uptime ping | A silent booking outage costs money |
-| Hosting | **Railway**: `web` + `worker` + Postgres in one project (~US$10–20/mo **VERIFY**) | Flat, cheap, long-running worker is trivial. Alternative: Vercel Pro + Neon (+ Inngest instead of pg-boss). Note Vercel Hobby is non-commercial, so it isn't free for this. |
-| Backups | Daily automated Postgres backups + a weekly off-platform dump | Bookings and client history are the business's records |
+| Concern              | Choice                                                                                                     | Why                                                                                                                                                                         |
+| -------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Language / framework | **TypeScript + Next.js (App Router)**                                                                      | One app serves the public booking pages, the admin portal and API routes; matches the existing tooling in this workspace                                                    |
+| UI                   | Tailwind + Radix primitives (shadcn-style), **custom-themed to Ryan's brand** (peach/black, heavy grotesk) | Booking page should look like his site, not a template                                                                                                                      |
+| Calendar UI          | **FullCalendar** (MIT time-grid views)                                                                     | Drag/drop, day/week views, mobile-capable; avoid its premium resource-timeline plugin                                                                                       |
+| Database             | **PostgreSQL**                                                                                             | Exclusion constraints prevent double-booking at the DB level (§6)                                                                                                           |
+| ORM / migrations     | **Drizzle**                                                                                                | Typed, SQL-close, simple migrations                                                                                                                                         |
+| Admin auth           | **Better Auth** (or Auth.js) with Google sign-in + owner allow-list                                        | He's connecting Google anyway; no password to manage                                                                                                                        |
+| Customer identity    | **Guest checkout + signed magic links** for "view/change my booking"                                       | No accounts, no passwords, no OTP cost                                                                                                                                      |
+| Background jobs      | **pg-boss** (Postgres-backed queue) in a separate worker process                                           | Reminders, retries, Xero sync, hold expiry; no extra SaaS                                                                                                                   |
+| Payments             | **Stripe** (PaymentElement, PaymentIntents, webhooks) on **Ryan's own Stripe account**                     | No Connect needed for single tenant; card data never touches us (PCI SAQ-A)                                                                                                 |
+| Email                | **Resend** + React Email, sent from his domain (SPF/DKIM/DMARC), `.ics` attached                           | Cheap, good deliverability tooling                                                                                                                                          |
+| SMS                  | Provider-agnostic `SmsProvider` interface; start with **ClickSend** or **Twilio** (AU)                     | Swappable if price/deliverability disappoint                                                                                                                                |
+| Calendar             | **Google Calendar API** (OAuth, `events`, `freebusy`, push channels)                                       | Two-way sync                                                                                                                                                                |
+| Accounting           | **Xero Accounting API** (OAuth2, `xero-node`)                                                              | Contacts, invoices, payments                                                                                                                                                |
+| Claude / MCP         | **Official TypeScript MCP SDK**, Streamable HTTP at `/mcp`, OAuth 2.1                                      | Lets Ryan manage the business from Claude (§10a)                                                                                                                            |
+| Bot protection       | **Cloudflare Turnstile** + per-IP/phone rate limits                                                        | Same as Timely, no user friction                                                                                                                                            |
+| Time handling        | Store UTC, render in `Australia/Melbourne` with Temporal/Luxon                                             | DST changes (Oct/Apr) are the classic scheduling bug                                                                                                                        |
+| Testing              | Vitest (unit), Playwright (E2E + visual), Stripe/Xero/Google sandboxes                                     | Repo standards require 80%+ coverage and TDD                                                                                                                                |
+| Observability        | Sentry (free tier), structured logs, uptime ping                                                           | A silent booking outage costs money                                                                                                                                         |
+| Hosting              | **Railway**: `web` + `worker` + Postgres in one project (~US$10–20/mo **VERIFY**)                          | Flat, cheap, long-running worker is trivial. Alternative: Vercel Pro + Neon (+ Inngest instead of pg-boss). Note Vercel Hobby is non-commercial, so it isn't free for this. |
+| Backups              | Daily automated Postgres backups + a weekly off-platform dump                                              | Bookings and client history are the business's records                                                                                                                      |
 
 **Single-tenant, but not sloppy:** one `business` row, `staff_id` and `location_id` on everything that needs them. Adding a second stylist later is a data change, not a rewrite. Adding other businesses (selling this as a product) is a bigger step and deliberately out of scope.
 
@@ -166,13 +168,13 @@ Ryan's policy maps cleanly onto Stripe:
 
 ## 8. Notifications
 
-| Message | Channel | Trigger |
-|---|---|---|
-| Booking confirmation + invoice PDF + `.ics` | Email + SMS | On `confirmed` |
+| Message                                                                          | Channel                | Trigger                                                                                 |
+| -------------------------------------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------- |
+| Booking confirmation + invoice PDF + `.ics`                                      | Email + SMS            | On `confirmed`                                                                          |
 | Reminder (day before; Timely's text mentions arrive-early/parking/cash discount) | SMS (+ email optional) | `start − 24h`, scheduled when confirmed, **cancelled/re-timed on reschedule or cancel** |
-| Booking moved / cancelled | Email + SMS | Admin or client change |
-| Late-cancel / no-show fee charged | Email | Payment event |
-| New booking / cancellation alert to Ryan | Push (PWA) or SMS | On event |
+| Booking moved / cancelled                                                        | Email + SMS            | Admin or client change                                                                  |
+| Late-cancel / no-show fee charged                                                | Email                  | Payment event                                                                           |
+| New booking / cancellation alert to Ryan                                         | Push (PWA) or SMS      | On event                                                                                |
 
 - Templates are editable in admin (with variables) and versioned.
 - **SMS sender ID:** Australia requires **alphanumeric sender IDs to be registered** (ACMA SMS Sender ID Register; enforcement reported from **1 July 2026**, needs an ABN — **VERIFY**). Unregistered IDs show as "Unverified". Start registration through the chosen SMS provider early — it has lead time. Using a plain mobile number/long code avoids the register but looks less branded.
@@ -205,12 +207,14 @@ Mobile-first **PWA** (Ryan will mostly use his phone between clients), with a st
 ## 10. Integrations
 
 ### Google Calendar (two-way)
+
 - **Out:** each confirmed booking → event on Ryan's chosen calendar (title, client, services, location, phone, link to admin). Update/delete on change.
 - **In:** read busy time (`freebusy` + `events.watch` push channels with a `syncToken` fallback poll) → `time_block` entries so personal events block availability. Ignore events we created.
 - **Gotcha:** an OAuth app left in **"Testing"** has refresh tokens that expire after 7 days. Publish the consent screen to **"In production"** (single user, so unverified-app warning is fine) and re-consent once afterwards. **VERIFY** against Google's docs.
 - **Bonus:** the same sync makes the **Timely → this system cutover safe** (§13): both systems read the same calendar and so respect each other's bookings.
 
 ### Xero
+
 - OAuth2 authorisation-code flow with `offline_access`. Apps created after 2 March 2026 must use **granular scopes** (`accounting.contacts`, `accounting.invoices`, `accounting.payments`, plus `accounting.settings.read` to read accounts/tax rates) rather than `accounting.transactions` — **VERIFY**.
 - **Flow per booking (proposed):**
   1. Upsert Xero **Contact** (match on email).
@@ -221,6 +225,18 @@ Mobile-first **PWA** (Ryan will mostly use his phone between clients), with a st
   6. Fetch the invoice **PDF** from Xero (`Accept: application/pdf`) to attach to the client email.
 - **Stripe fees & payouts:** Stripe pays out net batches, so bank reconciliation in Xero is messy. Either book fee/payout lines ourselves from Stripe balance transactions, or use Stripe's own Xero app for payout reconciliation and let our integration own invoices/payments only. Ask his bookkeeper which they prefer.
 - Use the Xero **Demo Company** for development. Failures go to a visible retry queue; Xero never blocks booking or the confirmation email (invoice follows if not ready in time).
+
+### 10a. MCP server (manage the business from Claude)
+
+A remote MCP server, shipped as part of the same app (`/mcp`, Streamable HTTP), so Ryan can connect it to Claude as a custom connector and talk to the business directly. It is a **thin layer over the same service functions the admin UI uses**. There is no second code path, so every business rule (availability, deposit, policy, audit) applies identically.
+
+- **Auth:** OAuth 2.1 with the owner's Google sign-in (the MCP authorization spec), issuing short-lived tokens scoped to the owner. No shared API keys in a config file. Tokens are revocable from the admin.
+- **Read tools** (safe, no confirmation): `list_bookings` (date range / location / status), `get_booking`, `find_client`, `get_client_history`, `check_availability`, `get_revenue_summary`, `get_cancellation_report`, `list_services`, `get_integration_status`.
+- **Write tools** (each returns a **preview first**, then needs an explicit `confirm` call): `create_booking`, `move_booking` (optionally notify client), `cancel_booking` (refund vs forfeit), `block_time`, `update_service`, `update_hours`, `add_client_note`, `send_message`.
+- **Money tools are the most restricted:** `refund_payment` and `charge_no_show_fee` always require confirmation with the exact amount and recipient, enforce per-call and daily caps, and can be switched off entirely in settings.
+- **Safety:** every call is written to the `audit_log` with actor = "mcp"; destructive tools are idempotent; client-supplied text (names, comments) is returned to the model as **data**, so tool output can't trigger actions on its own. Rate-limited.
+- **Reports:** the reporting queries from §9 are exposed as tools so Claude can answer ad hoc questions without new UI.
+- **Tested** with contract tests per tool, plus an "agent safety" suite (prompt-injection strings in client comments must not cause writes).
 
 ## 11. Security, privacy, compliance
 
@@ -250,37 +266,38 @@ Mobile-first **PWA** (Ryan will mostly use his phone between clients), with a st
 
 Sizes: S ≈ a few days, M ≈ ~1 week, L ≈ 2+ weeks of focused work. Rough total for v1: **~8–12 weeks part-time**; the order matters more than the estimate.
 
-| # | Milestone | Size | Exit criteria |
-|---|---|---|---|
-| 0 | **Foundations**: repo, CI (lint/type/test), env/secrets, Postgres + Drizzle, deploy skeleton (web + worker), Sentry, admin auth | S | Hello-world deployed with login; CI green |
-| 1 | **Domain + availability engine** (pure, test-first): rules, blocks, buffers, DST | M | Property/unit tests incl. DST; exclusion constraint proven by test |
-| 2 | **Public booking flow** (no payment): all steps, holds, Turnstile, brand styling, seed his real services/locations | M | Can book end-to-end on staging; Playwright E2E + screenshots at 320/768/1024/1440 |
-| 3 | **Stripe deposit** + webhooks + hold expiry + **confirmation email** (+ ICS) | M | Real test-mode payment confirms a booking; refunds work; no double-bookings under concurrent test |
-| 4 | **Admin portal core**: calendar, booking drawer, clients, services, hours, time off | L | Ryan can run a day from his phone on staging |
-| 5 | **Cancel/reschedule/no-show + fee logic** + magic-link "manage my booking" | M | Every policy branch covered by tests and a manual script |
-| 6 | **SMS**: provider adapter, confirmation, reminders (reschedule-safe), message log; start sender-ID registration in M0/M1 | M | Reminder fires at T−24h and is cancelled on reschedule |
-| 7 | **Google Calendar** two-way sync | M | Personal event blocks slots; bookings appear as events; no echo loops |
-| 8 | **Xero** sync (contacts, invoices, payments, PDF) + retry queue | M–L | Demo Company reconciles; failed pushes retry and surface |
-| 9 | **Reports** | M | Numbers match Stripe/Xero for a test month |
-| 10 | **Migration + parallel run + cutover**: import Timely client CSV, run both systems against the shared Google Calendar for 2–4 weeks, swap the website embed, then cancel Timely | M | Zero missed/double bookings during parallel run; Ryan signs off |
-| 11 | **Hardening**: load test, security review, backup/restore drill, accessibility audit, runbook | S–M | Restore drill passed; a11y checks clean |
+| #   | Milestone                                                                                                                                                                       | Size | Exit criteria                                                                                                    |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ---------------------------------------------------------------------------------------------------------------- |
+| 0   | **Foundations**: repo, CI (lint/type/test), env/secrets, Postgres + Drizzle, deploy skeleton (web + worker), Sentry, admin auth                                                 | S    | Hello-world deployed with login; CI green                                                                        |
+| 1   | **Domain + availability engine** (pure, test-first): rules, blocks, buffers, DST                                                                                                | M    | Property/unit tests incl. DST; exclusion constraint proven by test                                               |
+| 2   | **Public booking flow** (no payment): all steps, holds, Turnstile, brand styling, seed his real services/locations                                                              | M    | Can book end-to-end on staging; Playwright E2E + screenshots at 320/768/1024/1440                                |
+| 3   | **Stripe deposit** + webhooks + hold expiry + **confirmation email** (+ ICS)                                                                                                    | M    | Real test-mode payment confirms a booking; refunds work; no double-bookings under concurrent test                |
+| 4   | **Admin portal core**: calendar, booking drawer, clients, services, hours, time off                                                                                             | L    | Ryan can run a day from his phone on staging                                                                     |
+| 5   | **Cancel/reschedule/no-show + fee logic** + magic-link "manage my booking"                                                                                                      | M    | Every policy branch covered by tests and a manual script                                                         |
+| 6   | **SMS**: provider adapter, confirmation, reminders (reschedule-safe), message log; start sender-ID registration in M0/M1                                                        | M    | Reminder fires at T−24h and is cancelled on reschedule                                                           |
+| 7   | **Google Calendar** two-way sync                                                                                                                                                | M    | Personal event blocks slots; bookings appear as events; no echo loops                                            |
+| 8   | **Xero** sync (contacts, invoices, payments, PDF) + retry queue                                                                                                                 | M–L  | Demo Company reconciles; failed pushes retry and surface                                                         |
+| 9   | **Reports**                                                                                                                                                                     | M    | Numbers match Stripe/Xero for a test month                                                                       |
+| 10  | **Migration + parallel run + cutover**: import Timely client CSV, run both systems against the shared Google Calendar for 2–4 weeks, swap the website embed, then cancel Timely | M    | Zero missed/double bookings during parallel run; Ryan signs off                                                  |
+| 10a | **MCP server** (§10a): OAuth, read tools first, then confirm-gated write tools, audit log, safety tests. Can start once M4/M5 service functions exist                           | M    | Ryan can ask "what's on Saturday?" and "block next Friday" from Claude; all writes audited; injection tests pass |
+| 11  | **Hardening**: load test, security review, backup/restore drill, accessibility audit, runbook                                                                                   | S–M  | Restore drill passed; a11y checks clean                                                                          |
 
 **Cutover safety:** keep Timely live until the parallel run proves the new system. Existing future Timely bookings stay in Timely (visible via the shared Google Calendar); new ones go to the new system. Don't try to migrate in-flight deposits.
 
 ## 14. Main risks
 
-| Risk | Mitigation |
-|---|---|
-| Booking outage or bug costs real money | Parallel run, Sentry + uptime alerts, simple rollback (re-point embed to Timely) |
-| Double-booking | DB exclusion constraint + holds + concurrency tests |
-| Timezone/DST errors | UTC storage, Temporal/Luxon, explicit DST tests |
-| SMS not delivered / "Unverified" sender | Register sender ID early, provider adapter, delivery status in message log |
-| Email to spam | SPF/DKIM/DMARC, dedicated sending domain, seed-list testing |
-| Google refresh token expiry | Publish consent screen; surface "reconnect" in admin |
-| Xero API/scopes/pricing churn | Granular scopes from day 1; isolate behind an adapter; free Starter tier covers one org |
-| Late-fee disputes/chargebacks | Stored policy acceptance, clear UX, message logs |
-| Key-person risk (one developer) | Docs, runbook, standard stack, owner-held accounts |
-| Scope creep ("Timely also does…") | v1 = parity checklist in §1; everything else goes to a backlog |
+| Risk                                    | Mitigation                                                                              |
+| --------------------------------------- | --------------------------------------------------------------------------------------- |
+| Booking outage or bug costs real money  | Parallel run, Sentry + uptime alerts, simple rollback (re-point embed to Timely)        |
+| Double-booking                          | DB exclusion constraint + holds + concurrency tests                                     |
+| Timezone/DST errors                     | UTC storage, Temporal/Luxon, explicit DST tests                                         |
+| SMS not delivered / "Unverified" sender | Register sender ID early, provider adapter, delivery status in message log              |
+| Email to spam                           | SPF/DKIM/DMARC, dedicated sending domain, seed-list testing                             |
+| Google refresh token expiry             | Publish consent screen; surface "reconnect" in admin                                    |
+| Xero API/scopes/pricing churn           | Granular scopes from day 1; isolate behind an adapter; free Starter tier covers one org |
+| Late-fee disputes/chargebacks           | Stored policy acceptance, clear UX, message logs                                        |
+| Key-person risk (one developer)         | Docs, runbook, standard stack, owner-held accounts                                      |
+| Scope creep ("Timely also does…")       | v1 = parity checklist in §1; everything else goes to a backlog                          |
 
 ## 15. Immediate next steps
 
