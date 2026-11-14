@@ -1,3 +1,4 @@
+import { PageBoundary } from "@/components/admin/shell/page-boundary";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus, Scissors } from "lucide-react";
@@ -13,7 +14,15 @@ import { CatalogNav } from "./_components/catalog-nav";
 
 export const metadata: Metadata = { title: "Catalog" };
 
-export default async function CatalogPage() {
+export default function CatalogPage() {
+  return (
+    <PageBoundary>
+      <CatalogBody />
+    </PageBoundary>
+  );
+}
+
+async function CatalogBody() {
   await requireOwner();
   const db = getDb();
   const [services, locations] = await Promise.all([listServices(db), listLocations(db)]);

@@ -1,3 +1,4 @@
+import { PageBoundary } from "@/components/admin/shell/page-boundary";
 import type { Metadata } from "next";
 import { getDb } from "@/db/client";
 import { PageHeader } from "@/components/ui/page-header";
@@ -7,7 +8,15 @@ import { LocationForm } from "../../_components/location-form";
 
 export const metadata: Metadata = { title: "New location" };
 
-export default async function NewLocationPage() {
+export default function NewLocationPage() {
+  return (
+    <PageBoundary>
+      <NewLocationBody />
+    </PageBoundary>
+  );
+}
+
+async function NewLocationBody() {
   await requireOwner();
   const existing = await listLocations(getDb());
   return (

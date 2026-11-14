@@ -1,3 +1,4 @@
+import { PageBoundary } from "@/components/admin/shell/page-boundary";
 import type { Metadata } from "next";
 import { getDb } from "@/db/client";
 import { PageHeader } from "@/components/ui/page-header";
@@ -7,7 +8,15 @@ import { SettingsForm } from "./_components/settings-form";
 
 export const metadata: Metadata = { title: "Settings" };
 
-export default async function SettingsPage() {
+export default function SettingsPage() {
+  return (
+    <PageBoundary>
+      <SettingsBody />
+    </PageBoundary>
+  );
+}
+
+async function SettingsBody() {
   await requireOwner();
   const { settings } = await getAdminSettings(getDb());
   return (

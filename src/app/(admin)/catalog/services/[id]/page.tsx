@@ -1,3 +1,4 @@
+import { PageBoundary } from "@/components/admin/shell/page-boundary";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { z } from "zod";
@@ -10,7 +11,15 @@ import { ServiceForm } from "../../_components/service-form";
 
 export const metadata: Metadata = { title: "Edit service" };
 
-export default async function EditServicePage({ params }: { params: Promise<{ id: string }> }) {
+export default function EditServicePage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <PageBoundary>
+      <EditServiceBody params={params} />
+    </PageBoundary>
+  );
+}
+
+async function EditServiceBody({ params }: { params: Promise<{ id: string }> }) {
   await requireOwner();
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();

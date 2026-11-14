@@ -1,3 +1,4 @@
+import { PageBoundary } from "@/components/admin/shell/page-boundary";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MapPin, Plus } from "lucide-react";
@@ -12,7 +13,15 @@ import { CatalogNav } from "../_components/catalog-nav";
 
 export const metadata: Metadata = { title: "Locations" };
 
-export default async function LocationsPage() {
+export default function LocationsPage() {
+  return (
+    <PageBoundary>
+      <LocationsBody />
+    </PageBoundary>
+  );
+}
+
+async function LocationsBody() {
   await requireOwner();
   const locations = await listLocations(getDb());
 

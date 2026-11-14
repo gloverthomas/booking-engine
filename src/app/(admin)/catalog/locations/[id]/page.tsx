@@ -1,3 +1,4 @@
+import { PageBoundary } from "@/components/admin/shell/page-boundary";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { z } from "zod";
@@ -9,7 +10,15 @@ import { LocationForm } from "../../_components/location-form";
 
 export const metadata: Metadata = { title: "Edit location" };
 
-export default async function EditLocationPage({ params }: { params: Promise<{ id: string }> }) {
+export default function EditLocationPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <PageBoundary>
+      <EditLocationBody params={params} />
+    </PageBoundary>
+  );
+}
+
+async function EditLocationBody({ params }: { params: Promise<{ id: string }> }) {
   await requireOwner();
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();

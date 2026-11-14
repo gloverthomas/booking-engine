@@ -1,3 +1,4 @@
+import { PageBoundary } from "@/components/admin/shell/page-boundary";
 import type { Metadata } from "next";
 import { DateTime } from "luxon";
 import { getDb } from "@/db/client";
@@ -21,7 +22,15 @@ function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-export default async function HoursPage({ searchParams }: { searchParams: SearchParams }) {
+export default function HoursPage({ searchParams }: { searchParams: SearchParams }) {
+  return (
+    <PageBoundary>
+      <HoursBody searchParams={searchParams} />
+    </PageBoundary>
+  );
+}
+
+async function HoursBody({ searchParams }: { searchParams: SearchParams }) {
   await requireOwner();
   const params = await searchParams;
   const db = getDb();

@@ -1,3 +1,4 @@
+import { PageBoundary } from "@/components/admin/shell/page-boundary";
 import type { Metadata } from "next";
 import { DateTime } from "luxon";
 import { getDb } from "@/db/client";
@@ -25,7 +26,15 @@ const STATUS: Record<IntegrationCardStatus, { label: string; tone: BadgeTone }> 
   not_configured: { label: "Not set up", tone: "warning" },
 };
 
-export default async function IntegrationsPage() {
+export default function IntegrationsPage() {
+  return (
+    <PageBoundary>
+      <IntegrationsBody />
+    </PageBoundary>
+  );
+}
+
+async function IntegrationsBody() {
   await requireOwner();
   const db = getDb();
   const [biz, cards] = await Promise.all([

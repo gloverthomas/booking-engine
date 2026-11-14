@@ -1,3 +1,4 @@
+import { PageBoundary } from "@/components/admin/shell/page-boundary";
 import type { Metadata } from "next";
 import { getDb } from "@/db/client";
 import { PageHeader } from "@/components/ui/page-header";
@@ -8,7 +9,15 @@ import { ServiceForm } from "../../_components/service-form";
 
 export const metadata: Metadata = { title: "New service" };
 
-export default async function NewServicePage() {
+export default function NewServicePage() {
+  return (
+    <PageBoundary>
+      <NewServiceBody />
+    </PageBoundary>
+  );
+}
+
+async function NewServiceBody() {
   await requireOwner();
   const db = getDb();
   const [locations, staff, services, { settings }] = await Promise.all([
