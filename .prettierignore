@@ -4,3 +4,6 @@ drizzle/meta
 pnpm-lock.yaml
 coverage
 .claude
+site/.next
+site/node_modules
+site/pnpm-lock.yaml
