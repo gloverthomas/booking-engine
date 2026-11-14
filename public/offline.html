@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex" />
+    <title>Offline · Ryan Kennedy Admin</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --paper: #fff8f1;
+        --ink: #141210;
+        --muted: #4f463e;
+        --peach: #fde9d6;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #12100e;
+          --ink: #f7eee5;
+          --muted: #c4b8ab;
+          --peach: #2a2118;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 2rem 1.25rem;
+        background: var(--paper);
+        color: var(--ink);
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          Arial,
+          sans-serif;
+        line-height: 1.5;
+      }
+      main {
+        width: min(28rem, 100%);
+        border-top: 3px solid var(--ink);
+        padding-top: 1.5rem;
+      }
+      p.eyebrow {
+        margin: 0 0 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      h1 {
+        margin: 0 0 1rem;
+        font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif;
+        font-size: clamp(2.25rem, 12vw, 3.5rem);
+        line-height: 0.92;
+        letter-spacing: -0.025em;
+        text-transform: uppercase;
+      }
+      p {
+        color: var(--muted);
+      }
+      button {
+        min-height: 2.75rem;
+        padding: 0 1.25rem;
+        border: 1px solid var(--ink);
+        border-radius: 6px;
+        background: var(--ink);
+        color: var(--paper);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:focus-visible {
+        outline: 3px solid #b4440b;
+        outline-offset: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">Ryan Kennedy admin</p>
+      <h1>You're offline</h1>
+      <p>
+        The diary needs a connection to show your bookings and clients, so nothing is saved on this
+        device. Check your signal and try again.
+      </p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

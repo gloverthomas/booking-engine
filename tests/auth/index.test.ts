@@ -6,7 +6,11 @@ const redirectMock = vi.fn((url: string): never => {
 });
 
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ cookie: "x=1" }) }));
-vi.mock("next/navigation", () => ({ redirect: (url: string) => redirectMock(url) }));
+const rethrow = vi.fn();
+vi.mock("next/navigation", () => ({
+  redirect: (url: string) => redirectMock(url),
+  unstable_rethrow: (error: unknown) => rethrow(error),
+}));
 vi.mock("@/db/client", () => ({ getDb: () => ({}) }));
 vi.mock("@/server/auth/auth", () => ({
   createAuth: () => ({ api: { getSession } }),
@@ -27,6 +31,7 @@ describe("requireOwner / getOwnerSession wiring", () => {
   beforeEach(() => {
     vi.resetModules();
     getSession.mockReset();
+    rethrow.mockReset();
     redirectMock.mockClear();
     for (const key of ENV_KEYS) saved[key] = process.env[key];
     process.env.DATABASE_URL = "postgres://u:p@localhost:5432/x";
@@ -69,6 +74,17 @@ describe("requireOwner / getOwnerSession wiring", () => {
     getSession.mockRejectedValue(new Error("boom"));
     const { getOwnerSession } = await import("@/server/auth");
     await expect(getOwnerSession()).resolves.toBeNull();
+    expect(rethrow).toHaveBeenCalledWith(expect.objectContaining({ message: "boom" }));
+  });
+
+  test("lets Next's control-flow errors (e.g. a prerender bailout) propagate instead of reporting signed out", async () => {
+    const bailout = new Error("NEXT_PRERENDER_INTERRUPTED");
+    rethrow.mockImplementationOnce((error: unknown) => {
+      throw error;
+    });
+    getSession.mockRejectedValue(bailout);
+    const { getOwnerSession } = await import("@/server/auth");
+    await expect(getOwnerSession()).rejects.toBe(bailout);
   });
 
   test("fails with a clear message, only when used, if sign-in is not configured", async () => {
