@@ -25,7 +25,6 @@ export default defineConfig({
         "src/server/booking/index.ts",
         "src/server/payments/index.ts",
         "src/server/notifications/index.ts",
-        "src/server/auth/index.ts",
         "src/worker/handlers/notifications.ts",
         "src/worker/handlers/google.ts",
         "src/worker/handlers/xero.ts",
