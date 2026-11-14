@@ -465,6 +465,35 @@ describe("consumer.xero", () => {
     });
   });
 
+  describe("booking.completed", () => {
+    test("whatever is still owed at checkout (the cash discount) is credited and allocated, once", async () => {
+      await seedPayment(t.db, seed.bookingId);
+      await confirm();
+      const [invoice] = [...xero.invoices.values()];
+      expect(invoice.amountDueCents).toBe(7500);
+
+      await handleXeroDomainEvent(deps, { type: "booking.completed", bookingId: seed.bookingId });
+
+      expect(xero.calls.find((c) => c.method === "createCreditNote")!.input).toMatchObject({
+        lines: [expect.objectContaining({ description: "Discount at checkout" })],
+      });
+      expect(invoice).toMatchObject({ amountDueCents: 0, status: "PAID" });
+      await handleXeroDomainEvent(deps, { type: "booking.completed", bookingId: seed.bookingId });
+      expect(xero.count("createCreditNote")).toBe(1);
+    });
+
+    test("does nothing without an invoice, and ignores the write-off-on-cancel setting", async () => {
+      await handleXeroDomainEvent(deps, { type: "booking.completed", bookingId: seed.bookingId });
+      expect(xero.calls).toHaveLength(0);
+
+      await confirm();
+      await setSyncState({ writeOffOnCancel: false });
+      await handleXeroDomainEvent(deps, { type: "booking.completed", bookingId: seed.bookingId });
+      expect(xero.count("createCreditNote")).toBe(1);
+      await handleXeroDomainEvent(deps, { type: "booking.completed" });
+    });
+  });
+
   describe("failure handling", () => {
     test("a missing clearing account: the invoice still goes out, lastError says what to fix, no retry storm", async () => {
       await setSyncState({ clearingAccountCode: undefined });

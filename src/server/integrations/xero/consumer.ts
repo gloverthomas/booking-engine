@@ -41,6 +41,7 @@ const HANDLED = new Set([
   "booking.confirmed",
   "booking.cancelled",
   "booking.no_show",
+  "booking.completed",
   "payment.succeeded",
   "payment.refunded",
 ]);
@@ -323,8 +324,24 @@ async function onPaymentRefunded(ctx: Ctx, refundId: string): Promise<void> {
  * invoice so revenue equals what was actually kept (a forfeited deposit stays as revenue).
  */
 async function onBookingGone(ctx: Ctx, bookingId: string): Promise<void> {
+  if (!ctx.rt.config.writeOffOnCancel) return;
+  await creditUnpaidBalance(ctx, bookingId, "Cancelled booking: unpaid balance");
+}
+
+/**
+ * A booking completed at checkout is settled by definition: whatever is still owed on the invoice is
+ * the discount the owner gave (for example the cash discount), so credit it and allocate it.
+ */
+async function onBookingCompleted(ctx: Ctx, bookingId: string): Promise<void> {
+  await creditUnpaidBalance(ctx, bookingId, "Discount at checkout");
+}
+
+async function creditUnpaidBalance(
+  ctx: Ctx,
+  bookingId: string,
+  description: string,
+): Promise<void> {
   const { deps, rt, timezone } = ctx;
-  if (!rt.config.writeOffOnCancel) return;
   const bundle = await loadBookingBundle(deps.db, bookingId);
   const invoiceId = bundle?.booking.xeroInvoiceId;
   if (!bundle || !invoiceId) return;
@@ -338,7 +355,7 @@ async function onBookingGone(ctx: Ctx, bookingId: string): Promise<void> {
     contactId,
     reference: bookingId,
     date,
-    lines: [singleLine("Cancelled booking: unpaid balance", invoice.amountDueCents, rt.config)],
+    lines: [singleLine(description, invoice.amountDueCents, rt.config)],
     lineAmountTypes: amountTypesFor(rt.config),
     idempotencyKey: `writeoff-${bookingId}`,
   });
@@ -363,6 +380,9 @@ async function dispatch(ctx: Ctx, event: IncomingXeroEvent): Promise<void> {
     case "booking.cancelled":
     case "booking.no_show":
       if (event.bookingId) await onBookingGone(ctx, event.bookingId);
+      return;
+    case "booking.completed":
+      if (event.bookingId) await onBookingCompleted(ctx, event.bookingId);
       return;
     case "payment.succeeded":
       if (event.paymentId) await onPaymentSucceeded(ctx, event.paymentId);
