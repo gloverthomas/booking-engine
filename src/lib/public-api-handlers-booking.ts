@@ -68,6 +68,7 @@ export function handleGetBooking(deps: PublicApiDeps, request: Request, token: s
           name: r.context.locationName,
           address: r.context.address,
           arrivalNote: r.context.arrivalNote,
+          phone: r.context.phone,
         },
         serviceIds: r.context.serviceIds,
         businessName: r.business.name,

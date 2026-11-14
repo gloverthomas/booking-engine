@@ -1,0 +1,366 @@
+/* Option rows (locations, services), time lists, recap, countdown, payment. */
+
+.rk-group + .rk-group {
+  margin-top: var(--rk-s-6);
+}
+
+.rk-group__title {
+  margin-bottom: var(--rk-s-2);
+  padding-bottom: var(--rk-s-2);
+  border-bottom: var(--rk-hair) solid var(--rk-ink);
+  font-family: var(--rk-font-mono);
+  font-size: var(--rk-text-xs);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.rk-options {
+  display: grid;
+}
+
+/* A whole row is one control. The native input is visually hidden but stays focusable. */
+.rk-option {
+  position: relative;
+  display: block;
+  border-bottom: var(--rk-hair) solid rgb(11 11 11 / 0.55);
+  cursor: pointer;
+}
+
+.rk-option__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.rk-option__body {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--rk-s-4);
+  min-height: 4.5rem;
+  padding: var(--rk-s-4) var(--rk-s-3);
+  isolation: isolate;
+}
+
+/* Selected fill rises from the bottom edge; the hover bar slides in from the left. */
+.rk-option__body::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--rk-ink);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform var(--rk-dur) var(--rk-ease);
+}
+
+.rk-option__body::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 8px;
+  background: var(--rk-signal);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--rk-dur-fast) var(--rk-ease);
+}
+
+.rk-option:hover .rk-option__body::after {
+  transform: none;
+}
+
+.rk-option__input:checked + .rk-option__body {
+  color: var(--rk-peach);
+  transition: color 0s linear 90ms;
+}
+
+.rk-option__input:checked + .rk-option__body::before {
+  transform: scaleY(1);
+}
+
+.rk-option__input:checked + .rk-option__body::after {
+  transform: none;
+}
+
+.rk-option__input:focus-visible + .rk-option__body {
+  outline: 3px solid var(--rk-ink);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px var(--rk-peach);
+}
+
+.rk-option__mark {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 2px solid currentColor;
+  flex: 0 0 auto;
+}
+
+.rk-option__mark svg {
+  opacity: 0;
+  transform: scale(0.4);
+  transition:
+    transform var(--rk-dur-fast) var(--rk-ease),
+    opacity var(--rk-dur-fast) var(--rk-ease);
+}
+
+.rk-option__input:checked + .rk-option__body .rk-option__mark svg {
+  opacity: 1;
+  transform: none;
+}
+
+/* Radio rows (location) use a round mark. */
+.rk-option--radio .rk-option__mark {
+  border-radius: 50%;
+}
+
+.rk-option__name {
+  display: block;
+  font-family: var(--rk-font-display);
+  font-weight: 900;
+  font-stretch: 90%;
+  font-size: var(--rk-text-lg);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.rk-option__desc {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--rk-text-sm);
+  opacity: 0.85;
+}
+
+.rk-option__facts {
+  text-align: right;
+  font-family: var(--rk-font-mono);
+  font-size: var(--rk-text-sm);
+  line-height: 1.35;
+}
+
+.rk-option__price {
+  display: block;
+  font-size: var(--rk-text-md);
+  font-weight: 500;
+}
+
+/* ---- Slot picker layout ---- */
+
+.rk-picker {
+  display: grid;
+  gap: var(--rk-s-6);
+}
+
+@media (min-width: 46rem) {
+  .rk-picker {
+    grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.rk-times__empty {
+  padding: var(--rk-s-5);
+  border: 2px dashed rgb(11 11 11 / 0.5);
+  color: var(--rk-ink-soft);
+}
+
+.rk-times__heading {
+  margin-bottom: var(--rk-s-4);
+  font-family: var(--rk-font-display);
+  font-weight: 900;
+  font-stretch: 88%;
+  font-size: var(--rk-text-lg);
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+
+.rk-times__group + .rk-times__group {
+  margin-top: var(--rk-s-5);
+}
+
+.rk-times__legend {
+  margin-bottom: var(--rk-s-2);
+  font-family: var(--rk-font-mono);
+  font-size: var(--rk-text-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.rk-times__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.25rem, 1fr));
+  gap: var(--rk-s-2);
+}
+
+.rk-slot {
+  position: relative;
+  min-height: 3rem;
+  padding: 0 var(--rk-s-3);
+  border: 2px solid var(--rk-ink);
+  background: transparent;
+  font-family: var(--rk-font-mono);
+  font-size: var(--rk-text-base);
+  font-weight: 500;
+  isolation: isolate;
+  touch-action: manipulation;
+}
+
+.rk-slot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--rk-ink);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform var(--rk-dur-fast) var(--rk-ease);
+}
+
+.rk-slot:hover::before {
+  transform: scaleY(0.12);
+}
+
+.rk-slot[aria-pressed="true"] {
+  color: var(--rk-peach);
+  transition: color 0s linear 60ms;
+}
+
+.rk-slot[aria-pressed="true"]::before {
+  transform: scaleY(1);
+}
+
+.rk-slot:active {
+  transform: translateY(2px);
+}
+
+.rk-times__tz {
+  margin-top: var(--rk-s-5);
+  color: var(--rk-ink-soft);
+  font-size: var(--rk-text-sm);
+}
+
+/* ---- Recap strip (details and pay steps) ---- */
+
+.rk-recap {
+  display: grid;
+  gap: var(--rk-s-1);
+  margin-bottom: var(--rk-s-5);
+  padding: var(--rk-s-4);
+  border: var(--rk-rule) solid var(--rk-ink);
+  background: var(--rk-peach-deep);
+}
+
+.rk-recap__when {
+  font-family: var(--rk-font-display);
+  font-weight: 900;
+  font-stretch: 90%;
+  font-size: var(--rk-text-md);
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+
+.rk-recap__what {
+  font-size: var(--rk-text-sm);
+  color: var(--rk-ink-soft);
+}
+
+/* ---- Hold countdown ---- */
+
+.rk-hold {
+  display: grid;
+  gap: var(--rk-s-2);
+  margin-bottom: var(--rk-s-5);
+}
+
+.rk-hold__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--rk-s-3);
+}
+
+.rk-hold__time {
+  font-family: var(--rk-font-mono);
+  font-size: var(--rk-text-lg);
+  font-weight: 500;
+}
+
+.rk-hold.is-urgent .rk-hold__time,
+.rk-hold.is-urgent .rk-eyebrow {
+  color: var(--rk-signal-text);
+}
+
+.rk-hold__track {
+  height: 6px;
+  background: rgb(11 11 11 / 0.15);
+  overflow: hidden;
+}
+
+.rk-hold__bar {
+  height: 100%;
+  background: var(--rk-ink);
+  transform-origin: left;
+  transition: transform 1s linear;
+}
+
+.rk-hold.is-urgent .rk-hold__bar {
+  background: var(--rk-signal);
+}
+
+/* ---- Payment ---- */
+
+.rk-pay {
+  padding: var(--rk-s-5);
+  border: var(--rk-rule) solid var(--rk-ink);
+  background: var(--rk-peach);
+}
+
+.rk-pay__amount {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--rk-s-3);
+  margin-bottom: var(--rk-s-4);
+  padding-bottom: var(--rk-s-3);
+  border-bottom: var(--rk-hair) solid var(--rk-ink);
+}
+
+.rk-pay__amount strong {
+  font-family: var(--rk-font-display);
+  font-weight: 900;
+  font-stretch: 88%;
+  font-size: var(--rk-text-xl);
+  letter-spacing: -0.03em;
+}
+
+.rk-pay__fine {
+  margin-top: var(--rk-s-4);
+  color: var(--rk-ink-soft);
+  font-size: var(--rk-text-sm);
+}
+
+.rk-pay__error {
+  margin-top: var(--rk-s-3);
+  color: var(--rk-signal-text);
+  font-weight: 700;
+}
+
+.rk-pay__skeleton {
+  height: 9rem;
+  background: var(--rk-peach-deep);
+  animation: rk-pulse 1.4s ease-in-out infinite;
+}
+
+.rk-pay .rk-btn {
+  width: 100%;
+  margin-top: var(--rk-s-4);
+}

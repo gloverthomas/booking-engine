@@ -133,6 +133,7 @@ export interface ManageBookingData {
     name: string;
     address: string | null;
     arrivalNote: string | null;
+    phone: string | null;
   };
   serviceIds: string[];
   businessName: string;

@@ -63,8 +63,8 @@ export function initialStateFor(
 export function flowReducer(state: FlowState, action: FlowAction): FlowState {
   switch (action.type) {
     case "selectLocation":
-      if (state.locationId === action.locationId)
-        return { ...state, step: "services", notice: null };
+      // Choosing is not navigating: the visitor moves on with the Services button.
+      if (state.locationId === action.locationId) return { ...state, notice: null };
       return {
         ...state,
         locationId: action.locationId,
@@ -72,7 +72,6 @@ export function flowReducer(state: FlowState, action: FlowAction): FlowState {
         date: null,
         slot: null,
         hold: null,
-        step: "services",
         notice: null,
       };
 

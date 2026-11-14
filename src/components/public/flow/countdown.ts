@@ -44,3 +44,8 @@ export function remainingFraction(clock: HoldClock, clientNowMs: number): number
 }
 
 export const URGENT_BELOW_MS = 60_000;
+
+/** Clock for a hold that has just been received. */
+export function startHoldClock(holdExpiresAt: string, serverNow: string): HoldClock {
+  return makeHoldClock(holdExpiresAt, serverNow, Date.now());
+}

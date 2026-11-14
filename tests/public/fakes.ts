@@ -114,6 +114,7 @@ export function makeDeps(overrides: Partial<PublicApiDeps> = {}): PublicApiDeps 
       locationName: "Northside",
       address: "302 Rathdowne Street, Carlton North VIC 3054",
       arrivalNote: "Arrive 5 minutes early",
+      phone: "03 9000 0000",
       serviceIds: [SVC_CUT],
     }),
     verifyTurnstile: async () => ({ ok: true }),

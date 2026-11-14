@@ -279,7 +279,6 @@ describe("flow reducer", () => {
       locationId: "other",
       serviceIds: [],
       slot: null,
-      step: "services",
     });
     const same = run(
       { type: "toggleService", serviceId: SVC_CUT },

@@ -103,6 +103,7 @@ export interface BookingContext {
   locationName: string;
   address: string | null;
   arrivalNote: string | null;
+  phone: string | null;
   serviceIds: string[];
 }
 
@@ -123,6 +124,7 @@ export async function loadBookingContext(
       state: location.state,
       postcode: location.postcode,
       arrivalNote: location.arrivalNote,
+      phone: location.phone,
     })
     .from(booking)
     .innerJoin(location, eq(location.id, booking.locationId))
@@ -143,6 +145,7 @@ export async function loadBookingContext(
     locationName: row.locationName,
     address: address || null,
     arrivalNote: row.arrivalNote,
+    phone: row.phone,
     serviceIds: services.flatMap((s) => (s.serviceId ? [s.serviceId] : [])),
   };
 }

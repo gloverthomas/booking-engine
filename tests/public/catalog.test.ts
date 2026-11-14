@@ -176,6 +176,7 @@ describe("public catalog loaders (real Postgres via PGlite)", () => {
       locationName: "Northside",
       address: "302 Rathdowne Street, Carlton North VIC 3054",
       arrivalNote: null,
+      phone: null,
       serviceIds: [cutId, beardId],
     });
   });

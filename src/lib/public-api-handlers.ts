@@ -151,7 +151,9 @@ function relevantAnswers(
  * CreateHoldInput has no fields for a second phone number or company, so they ride along in the
  * comments where the stylist sees them on the booking.
  */
-export function composeComments(body: Pick<HoldBody, "comments" | "otherPhone" | "company">) {
+export function composeComments(
+  body: Partial<Pick<HoldBody, "comments" | "otherPhone" | "company">>,
+) {
   const lines = [
     body.comments,
     body.otherPhone ? `Other phone: ${body.otherPhone}` : undefined,
