@@ -20,6 +20,8 @@ export type DomainEvent =
     }
   | { type: "booking.rescheduled"; bookingId: string; previousStart: string; notifyClient: boolean }
   | { type: "booking.completed"; bookingId: string }
+  /** An unpaid hold lapsed and its slot is free again. Emitted by expireHolds. */
+  | { type: "booking.expired"; bookingId: string }
   | { type: "booking.no_show"; bookingId: string; feeCents: number }
   | { type: "payment.succeeded"; paymentId: string }
   | { type: "payment.refunded"; paymentId: string }

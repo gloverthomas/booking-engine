@@ -36,6 +36,11 @@ DATABASE_URL=postgres://ci:ci@localhost:5432/ci pnpm build`.
    lint, unit tests (in-process Postgres via `tests/helpers/test-db.ts`) and `pnpm build`. Say what you could
    not check visually.
 
+## Two late additions
+
+- Event `booking.expired { bookingId }` exists. **W3's `expireHolds` must emit it** (inside the same transaction) for every hold it expires; W6's waitlist consumer offers the freed slot.
+- Audit actors: `owner:<userId>` for the owner, `staff:<userId>` for any other signed-in team member (`Actor` in `src/server/audit.ts`).
+
 ## Shared pieces (already in place, read-only for you)
 
 - **Roles and permissions:** `src/server/auth/permissions.ts` (`can(role, permission)`, `seesAllStaff(role)`).

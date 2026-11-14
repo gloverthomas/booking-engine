@@ -1,7 +1,8 @@
 import { auditLog } from "@/db/schema";
 import type { Db } from "./db-types";
 
-export type Actor = `owner:${string}` | "mcp" | "system" | "client";
+/** `owner:<userId>` for the owner, `staff:<userId>` for any other signed-in team member. */
+export type Actor = `owner:${string}` | `staff:${string}` | "mcp" | "system" | "client";
 
 export interface AuditEntry {
   actor: Actor;
