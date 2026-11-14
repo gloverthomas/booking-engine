@@ -27,8 +27,6 @@ export default defineConfig({
         "src/server/notifications/index.ts",
         "src/server/auth/index.ts",
         "src/worker/handlers/notifications.ts",
-        "src/worker/handlers/google.ts",
-        "src/worker/handlers/xero.ts",
         "src/worker/handlers/payments.ts",
         "src/worker/handlers/relay.ts",
       ],
