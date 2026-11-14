@@ -1,26 +1,223 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens. Direction: editorial / Swiss, taken from Ryan Kennedy's brand (warm peach, black,
+ * heavy tight uppercase grotesk) but calmer and more utilitarian for an admin used one-handed on a
+ * phone between clients. Flat surfaces, hairline rules, small radii, big clear type, no shadows
+ * except on overlays.
+ *
+ * Every text/background pair below is checked against WCAG AA by tests/admin-foundation/tokens-contrast.test.ts.
+ * Keep the `--c-*` hex values literal (the test reads them from this file).
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  /* Surfaces */
+  --c-paper: #fff8f1; /* page background: warm off-white */
+  --c-surface: #ffffff; /* cards, inputs */
+  --c-peach: #fde9d6; /* brand peach: emphasis surfaces, selected states */
+  --c-sunken: #f6ebdd; /* wells, table headers, disabled */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Ink */
+  --c-ink: #141210;
+  --c-ink-muted: #4f463e;
+  --c-ink-subtle: #6a5f55;
+
+  /* Rules and focus */
+  --c-line: #e6d8c8; /* decorative hairlines only */
+  --c-line-strong: #857a6e; /* control borders (3:1 against paper and surface) */
+  --c-focus: #b4440b;
+
+  /* Primary action: black on peach-white */
+  --c-primary: #141210;
+  --c-on-primary: #fff8f1;
+
+  /* Status: text colour on its own tint */
+  --c-success: #1b6a41;
+  --c-success-tint: #e4f2e9;
+  --c-warning: #7a4a00;
+  --c-warning-tint: #fbefd0;
+  --c-danger: #a8231b;
+  --c-danger-tint: #fbe4e1;
+  --c-on-danger: #ffffff;
+  --c-info: #1f4e8c;
+  --c-info-tint: #e3ecf8;
+
+  /* Type */
+  --f-text:
+    var(--font-geist-sans, ui-sans-serif), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Arial, sans-serif;
+  --f-mono: var(--font-geist-mono, ui-monospace), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Shape and rhythm */
+  --r-control: 6px;
+  --r-card: 10px;
+  --r-pill: 999px;
+  --tap: 2.75rem; /* 44px minimum touch target */
+  --space-page: clamp(1rem, 0.6rem + 1.6vw, 2rem);
+  --space-section: clamp(1.5rem, 1rem + 2vw, 2.5rem);
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Overlays only */
+  --sh-overlay: 0 1px 0 rgb(20 18 16 / 0.04), 0 18px 48px -12px rgb(20 18 16 / 0.28);
+  --scrim: rgb(20 18 16 / 0.5);
+
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --c-paper: #12100e;
+    --c-surface: #1c1916;
+    --c-peach: #2a2118;
+    --c-sunken: #231f1b;
+
+    --c-ink: #f7eee5;
+    --c-ink-muted: #c4b8ab;
+    --c-ink-subtle: #a39686;
+
+    --c-line: #3a332c;
+    --c-line-strong: #8a7e71;
+    --c-focus: #ffb27a;
+
+    --c-primary: #fde9d6;
+    --c-on-primary: #12100e;
+
+    --c-success: #7fd6a4;
+    --c-success-tint: #16301f;
+    --c-warning: #f2c66b;
+    --c-warning-tint: #33270b;
+    --c-danger: #ff9c93;
+    --c-danger-tint: #3a1512;
+    --c-on-danger: #12100e;
+    --c-info: #9cc2f5;
+    --c-info-tint: #14263f;
+
+    --sh-overlay: 0 1px 0 rgb(0 0 0 / 0.4), 0 18px 48px -12px rgb(0 0 0 / 0.7);
+    --scrim: rgb(0 0 0 / 0.62);
+
+    color-scheme: dark;
   }
 }
 
+@theme inline {
+  --color-paper: var(--c-paper);
+  --color-surface: var(--c-surface);
+  --color-peach: var(--c-peach);
+  --color-sunken: var(--c-sunken);
+  --color-ink: var(--c-ink);
+  --color-ink-muted: var(--c-ink-muted);
+  --color-ink-subtle: var(--c-ink-subtle);
+  --color-line: var(--c-line);
+  --color-line-strong: var(--c-line-strong);
+  --color-focus: var(--c-focus);
+  --color-primary: var(--c-primary);
+  --color-on-primary: var(--c-on-primary);
+  --color-success: var(--c-success);
+  --color-success-tint: var(--c-success-tint);
+  --color-warning: var(--c-warning);
+  --color-warning-tint: var(--c-warning-tint);
+  --color-danger: var(--c-danger);
+  --color-danger-tint: var(--c-danger-tint);
+  --color-on-danger: var(--c-on-danger);
+  --color-info: var(--c-info);
+  --color-info-tint: var(--c-info-tint);
+
+  --font-sans: var(--f-text);
+  /* --font-archivo is set by the admin layout (next/font); heavy system faces cover other pages. */
+  --font-display: var(--font-archivo, "Arial Black"), "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--f-mono);
+
+  --radius-control: var(--r-control);
+  --radius-card: var(--r-card);
+  --radius-pill: var(--r-pill);
+
+  --shadow-overlay: var(--sh-overlay);
+}
+
+html {
+  background: var(--c-paper);
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-family: var(--f-text);
+  font-size: 1rem;
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Keyboard focus: one consistent, high-contrast ring everywhere. */
+:focus-visible {
+  outline: 3px solid var(--c-focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+::selection {
+  background: var(--c-peach);
+  color: var(--c-ink);
+}
+
+/* Type roles. Display is heavy, tight and uppercase; everything else is the quiet text face. */
+.display {
+  font-family: var(--font-archivo, "Arial Black"), "Helvetica Neue", Arial, sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  line-height: 0.92;
+}
+
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--c-ink-subtle);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Respect reduced motion: keep state changes, drop movement. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Overlay animation (dialogs, sheets, toasts) */
+@keyframes ui-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ui-sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+@keyframes ui-sheet-in-right {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+@keyframes ui-toast-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
 }
