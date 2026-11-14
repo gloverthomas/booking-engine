@@ -8,7 +8,9 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
-    testTimeout: 20_000,
+    testTimeout: 30_000,
+    // In-process Postgres (PGlite) starts slowly when many test files boot it in parallel.
+    hookTimeout: 120_000,
     coverage: {
       provider: "v8",
       include: ["src/lib/**", "src/db/**", "src/server/**", "src/worker/**"],
@@ -16,19 +18,12 @@ export default defineConfig({
         "src/db/client.ts",
         "src/db/migrate.ts",
         "src/db/schema.ts",
+        "src/db/auth-schema.ts",
         "src/worker/index.ts",
         "src/worker/context.ts",
+        "src/worker/handlers/relay.ts",
         "src/server/contracts.ts",
         "src/server/db-types.ts",
-        // Stubs: the owning workstream deletes its line when it replaces the stub with real code.
-        "src/server/payments/index.ts",
-        "src/server/notifications/index.ts",
-        "src/server/auth/index.ts",
-        "src/worker/handlers/notifications.ts",
-        "src/worker/handlers/google.ts",
-        "src/worker/handlers/xero.ts",
-        "src/worker/handlers/payments.ts",
-        "src/worker/handlers/relay.ts",
       ],
       thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
     },
