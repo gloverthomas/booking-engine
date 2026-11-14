@@ -1,7 +1,10 @@
+import * as Sentry from "@sentry/node";
 import { PgBoss } from "pg-boss";
 import { getDb } from "@/db/client";
 import { getEnv } from "@/lib/env";
 import { createLogger } from "@/lib/logger";
+import { sentryOptions } from "@/lib/sentry";
+import { withJobErrorReporting } from "./error-reporting";
 import { JOBS, handleHeartbeat } from "./jobs";
 import type { RegisterHandlers, WorkerContext } from "./context";
 import { register as registerRelay } from "./handlers/relay";
@@ -21,9 +24,24 @@ const HANDLERS: RegisterHandlers[] = [
 async function main(): Promise<void> {
   const env = getEnv();
   const log = createLogger("worker");
-  const boss = new PgBoss(env.DATABASE_URL);
+  Sentry.init(
+    sentryOptions({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.SENTRY_ENVIRONMENT,
+      release: process.env.RAILWAY_GIT_COMMIT_SHA,
+      tracesSampleRate: process.env.SENTRY_TRACES_SAMPLE_RATE,
+    }),
+  );
+  const rawBoss = new PgBoss(env.DATABASE_URL);
+  // Job handlers that throw are reported to Sentry, then retried by pg-boss as before.
+  const boss = withJobErrorReporting(rawBoss, (error, queue) =>
+    Sentry.captureException(error, { tags: { queue } }),
+  );
 
-  boss.on("error", (error) => log({ event: "boss_error", message: error.message }));
+  rawBoss.on("error", (error) => {
+    log({ event: "boss_error", message: error.message });
+    Sentry.captureException(error);
+  });
   await boss.start();
 
   const ctx: WorkerContext = { boss, db: getDb(), log, now: () => new Date() };
@@ -45,8 +63,10 @@ async function main(): Promise<void> {
   process.on("SIGINT", () => void shutdown("SIGINT"));
 }
 
-main().catch((error: unknown) => {
+main().catch(async (error: unknown) => {
   const message = error instanceof Error ? error.message : "Unknown error";
+  Sentry.captureException(error);
+  await Sentry.flush(2000);
   process.stderr.write(`${JSON.stringify({ service: "worker", event: "fatal", message })}\n`);
   process.exit(1);
 });

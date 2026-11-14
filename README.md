@@ -43,3 +43,12 @@ Two services from this repo plus Postgres.
 | worker  | `pnpm install` | n/a               | `pnpm start:worker` |
 
 Both need `DATABASE_URL` (reference the Postgres service variable). Health check path for web: `/api/health`.
+
+## Error monitoring (Sentry)
+
+Wired into the web app (server and browser) and the worker, and **off until a DSN is set**. Set
+`SENTRY_DSN` (server and worker) and `NEXT_PUBLIC_SENTRY_DSN` (browser) on the host. Every event is
+scrubbed in `src/lib/sentry.ts` before it leaves: the signed-in user, request bodies, cookies and headers
+are dropped, and emails, phone numbers and manage-booking tokens are redacted from what remains. A
+throwing worker job is reported and then retried by pg-boss as before. Set `SENTRY_AUTH_TOKEN`,
+`SENTRY_ORG` and `SENTRY_PROJECT` at build time only if you want source maps uploaded.

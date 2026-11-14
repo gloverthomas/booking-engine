@@ -49,6 +49,10 @@ const envSchema = z.object({
   MCP_MAX_MONEY_DAILY_CENTS: z.string().optional(),
   MCP_RATE_LIMIT_PER_MIN: z.string().optional(),
   MCP_WRITE_RATE_LIMIT_PER_MIN: z.string().optional(),
+  /** Error monitoring. Off until a DSN is set. */
+  SENTRY_DSN: z.string().optional(),
+  NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
+  SENTRY_ENVIRONMENT: z.string().optional(),
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().optional(),
   TURNSTILE_SECRET_KEY: z.string().optional(),
   BUSINESS_TIMEZONE: z

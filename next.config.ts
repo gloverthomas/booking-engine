@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 import { publicFrameHeaders } from "./src/lib/public-api-frame";
 
 /** Admin screens must never be framed. */
@@ -56,4 +57,12 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Source maps are only uploaded when SENTRY_AUTH_TOKEN is set (a build-time secret on the host).
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  telemetry: false,
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+});
