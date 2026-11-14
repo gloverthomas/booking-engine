@@ -1,7 +1,22 @@
 import { PgBoss } from "pg-boss";
+import { getDb } from "@/db/client";
 import { getEnv } from "@/lib/env";
 import { createLogger } from "@/lib/logger";
 import { JOBS, handleHeartbeat } from "./jobs";
+import type { RegisterHandlers, WorkerContext } from "./context";
+import { register as registerRelay } from "./handlers/relay";
+import { register as registerNotifications } from "./handlers/notifications";
+import { register as registerGoogle } from "./handlers/google";
+import { register as registerXero } from "./handlers/xero";
+import { register as registerPayments } from "./handlers/payments";
+
+const HANDLERS: RegisterHandlers[] = [
+  registerRelay,
+  registerPayments,
+  registerNotifications,
+  registerGoogle,
+  registerXero,
+];
 
 async function main(): Promise<void> {
   const env = getEnv();
@@ -11,9 +26,13 @@ async function main(): Promise<void> {
   boss.on("error", (error) => log({ event: "boss_error", message: error.message }));
   await boss.start();
 
+  const ctx: WorkerContext = { boss, db: getDb(), log, now: () => new Date() };
+
   await boss.createQueue(JOBS.heartbeat);
-  await boss.work(JOBS.heartbeat, async () => handleHeartbeat({ log, now: () => new Date() }));
+  await boss.work(JOBS.heartbeat, async () => handleHeartbeat({ log, now: ctx.now }));
   await boss.schedule(JOBS.heartbeat, "*/15 * * * *");
+
+  for (const register of HANDLERS) await register(ctx);
 
   log({ event: "worker_started" });
 

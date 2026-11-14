@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { createTestDb } from "../helpers/test-db";
-import { booking, location, staff } from "@/db/schema";
+import { booking, staff } from "@/db/schema";
+import { seedBasics } from "../helpers/factories";
 
 type TestDb = Awaited<ReturnType<typeof createTestDb>>;
 
 let t: TestDb;
 let locationId: string;
 let staffId: string;
+let clientId: string;
 
 const slot = (start: string, end: string) => ({
   start: new Date(start),
@@ -21,17 +23,16 @@ async function insertBooking(
 ) {
   return t.db
     .insert(booking)
-    .values({ staffId: forStaff, locationId, status, during: slot(start, end) })
+    .values({ staffId: forStaff, locationId, clientId, status, during: slot(start, end) })
     .returning();
 }
 
 beforeEach(async () => {
   t = await createTestDb();
-  [{ id: locationId }] = await t.db
-    .insert(location)
-    .values({ name: "Northside" })
-    .returning({ id: location.id });
-  [{ id: staffId }] = await t.db.insert(staff).values({ name: "Ryan" }).returning({ id: staff.id });
+  const seed = await seedBasics(t.db);
+  locationId = seed.loc.id;
+  staffId = seed.stylist.id;
+  clientId = seed.cl.id;
 });
 
 afterEach(async () => {
