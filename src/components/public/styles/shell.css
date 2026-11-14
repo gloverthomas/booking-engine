@@ -1,0 +1,529 @@
+/* Page frame: topbar, masthead, step rail, two-column layout, ticket, buttons, notices. */
+
+.rk-page {
+  max-width: 76rem;
+  margin-inline: auto;
+  padding: var(--rk-s-4) var(--rk-gutter) var(--rk-s-8);
+}
+
+.rk-topbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--rk-s-4);
+  padding-bottom: var(--rk-s-3);
+  border-bottom: var(--rk-rule) solid var(--rk-ink);
+}
+
+.rk-wordmark {
+  font-family: var(--rk-font-display);
+  font-weight: 800;
+  font-size: var(--rk-text-sm);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  line-height: 1.1;
+}
+
+.rk-wordmark span {
+  display: block;
+  font-weight: 500;
+  opacity: 0.72;
+}
+
+.rk-topbar__note {
+  text-align: right;
+}
+
+.rk-masthead {
+  margin-top: var(--rk-s-6);
+  font-size: var(--rk-display);
+}
+
+.rk-masthead--compact {
+  margin-top: var(--rk-s-5);
+  font-size: var(--rk-display-compact);
+}
+
+.rk-masthead__dot {
+  color: var(--rk-signal);
+}
+
+.rk-embedded .rk-topbar {
+  display: none;
+}
+
+.rk-page.rk-embedded {
+  padding-top: var(--rk-s-2);
+}
+
+.rk-embedded .rk-masthead {
+  margin-top: 0;
+}
+
+/* ---- Step rail ---- */
+
+.rk-rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+  margin-top: var(--rk-s-5);
+}
+
+.rk-rail__item {
+  min-width: 0;
+}
+
+.rk-rail__btn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--rk-s-2) 0 0;
+  border: 0;
+  border-top: 4px solid rgb(11 11 11 / 0.22);
+  background: none;
+  text-align: left;
+}
+
+.rk-rail__item.is-done .rk-rail__btn,
+.rk-rail__item.is-current .rk-rail__btn {
+  border-top-color: var(--rk-ink);
+}
+
+.rk-rail__btn:disabled {
+  cursor: default;
+}
+
+.rk-rail__item.is-done .rk-rail__btn:not(:disabled):hover .rk-rail__label {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.25em;
+}
+
+.rk-rail__num {
+  font-family: var(--rk-font-mono);
+  font-size: var(--rk-text-xs);
+  letter-spacing: 0.1em;
+  color: var(--rk-ink-soft);
+}
+
+.rk-rail__item.is-current .rk-rail__num {
+  color: var(--rk-signal-text);
+  font-weight: 500;
+}
+
+.rk-rail__label {
+  font-weight: 800;
+  font-size: var(--rk-text-sm);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rk-rail__item:not(.is-current) .rk-rail__label {
+  display: none;
+}
+
+/* Narrow screens: five columns are too tight for a word, so the current label sits below the rail. */
+@media (max-width: 39.99rem) {
+  .rk-rail {
+    position: relative;
+    padding-bottom: 1.75rem;
+  }
+  .rk-rail__item.is-current .rk-rail__label {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+  }
+}
+
+@media (min-width: 40rem) {
+  .rk-rail__item:not(.is-current) .rk-rail__label {
+    display: block;
+  }
+  .rk-rail__item:not(.is-done):not(.is-current) .rk-rail__label {
+    color: var(--rk-ink-soft);
+  }
+}
+
+/* ---- Two-column layout ---- */
+
+.rk-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--rk-s-6);
+  margin-top: var(--rk-s-6);
+}
+
+@media (min-width: 62rem) {
+  .rk-layout {
+    grid-template-columns: minmax(0, 1fr) 21rem;
+    gap: var(--rk-s-7);
+    align-items: start;
+  }
+}
+
+.rk-stage {
+  min-width: 0;
+  animation: rk-rise var(--rk-dur) var(--rk-ease) both;
+}
+
+.rk-stage__back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rk-s-2);
+  margin-bottom: var(--rk-s-4);
+  padding: var(--rk-s-2) 0;
+  border: 0;
+  background: none;
+  font-family: var(--rk-font-mono);
+  font-size: var(--rk-text-sm);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.rk-stage__back svg {
+  transition: transform var(--rk-dur-fast) var(--rk-ease);
+}
+
+.rk-stage__back:hover svg {
+  transform: translateX(-4px);
+}
+
+.rk-step-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--rk-s-3);
+  font-family: var(--rk-font-display);
+  font-weight: 900;
+  font-stretch: 88%;
+  font-size: var(--rk-text-xl);
+  letter-spacing: -0.03em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.rk-step-title__num {
+  font-family: var(--rk-font-mono);
+  font-size: var(--rk-text-sm);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--rk-signal-text);
+}
+
+.rk-step-lede {
+  margin-top: var(--rk-s-3);
+  max-width: 38rem;
+  color: var(--rk-ink-soft);
+}
+
+.rk-step-body {
+  margin-top: var(--rk-s-5);
+}
+
+/* ---- Ticket: running total ---- */
+
+.rk-ticket {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin-inline: calc(var(--rk-gutter) * -1);
+  padding: var(--rk-s-3) var(--rk-gutter) calc(var(--rk-s-3) + env(safe-area-inset-bottom, 0px));
+  background: var(--rk-ink);
+  color: var(--rk-peach);
+}
+
+.rk-ticket__eyebrow,
+.rk-ticket__body,
+.rk-ticket__rule {
+  display: none;
+}
+
+.rk-ticket__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rk-s-4);
+}
+
+.rk-ticket__sum {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.rk-ticket__sum-label {
+  display: block;
+  font-family: var(--rk-font-mono);
+  font-size: var(--rk-text-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.rk-ticket__total {
+  font-family: var(--rk-font-display);
+  font-weight: 900;
+  font-stretch: 88%;
+  font-size: var(--rk-text-lg);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.rk-ticket__cta {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rk-ticket__cta .rk-btn {
+  width: 100%;
+  padding-inline: var(--rk-s-3);
+  font-size: var(--rk-text-base);
+}
+
+.rk-ticket__cta:empty {
+  display: none;
+}
+
+@media (min-width: 62rem) {
+  .rk-ticket {
+    position: sticky;
+    top: var(--rk-s-5);
+    bottom: auto;
+    margin-inline: 0;
+    padding: var(--rk-s-5);
+  }
+
+  .rk-ticket__eyebrow {
+    display: block;
+    opacity: 0.8;
+  }
+
+  .rk-ticket__body {
+    display: grid;
+    gap: var(--rk-s-3);
+    margin-top: var(--rk-s-4);
+    min-height: 3rem;
+  }
+
+  .rk-ticket__rule {
+    position: relative;
+    display: block;
+    margin: var(--rk-s-4) 0;
+    border-top: 2px dashed rgb(253 233 214 / 0.55);
+  }
+
+  /* Perforation notches sit exactly on the dashed rule. */
+  .rk-ticket__rule::before,
+  .rk-ticket__rule::after {
+    content: "";
+    position: absolute;
+    top: -0.7rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: var(--rk-peach);
+  }
+  .rk-ticket__rule::before {
+    left: calc(var(--rk-s-5) * -1 - 0.625rem);
+  }
+  .rk-ticket__rule::after {
+    right: calc(var(--rk-s-5) * -1 - 0.625rem);
+  }
+
+  .rk-ticket__foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .rk-ticket__total {
+    font-size: 2.5rem;
+  }
+
+  .rk-ticket__sum {
+    white-space: normal;
+  }
+
+  .rk-ticket__cta .rk-btn {
+    padding-inline: var(--rk-s-5);
+    font-size: var(--rk-text-md);
+  }
+}
+
+.rk-ticket__item {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--rk-s-3);
+  font-size: var(--rk-text-sm);
+}
+
+.rk-ticket__item-name {
+  font-weight: 700;
+}
+
+.rk-ticket__items {
+  display: grid;
+  gap: var(--rk-s-3);
+}
+
+.rk-ticket__meta {
+  display: grid;
+  gap: 2px;
+  font-size: var(--rk-text-sm);
+}
+
+.rk-ticket__empty {
+  font-size: var(--rk-text-sm);
+  opacity: 0.75;
+}
+
+.rk-ticket__deposit {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--rk-font-mono);
+  font-size: var(--rk-text-xs);
+  opacity: 0.85;
+}
+
+/* ---- Buttons ---- */
+
+.rk-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rk-s-3);
+  min-height: 3.5rem;
+  padding: 0 var(--rk-s-5);
+  border: var(--rk-rule) solid var(--rk-ink);
+  background: var(--rk-ink);
+  color: var(--rk-peach);
+  font-family: var(--rk-font-display);
+  font-weight: 900;
+  font-stretch: 90%;
+  font-size: var(--rk-text-md);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+
+.rk-btn svg {
+  transition: transform var(--rk-dur-fast) var(--rk-ease);
+}
+
+.rk-btn:hover:not(:disabled):not([aria-disabled="true"]) svg {
+  transform: translateX(5px);
+}
+
+.rk-btn:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translateY(2px);
+}
+
+.rk-btn:disabled,
+.rk-btn[aria-disabled="true"] {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+
+.rk-btn--ghost {
+  background: transparent;
+  color: var(--rk-ink);
+}
+
+.rk-btn--ghost:hover:not(:disabled) {
+  background: var(--rk-ink);
+  color: var(--rk-peach);
+}
+
+.rk-btn--danger {
+  border-color: var(--rk-signal-text);
+  background: var(--rk-signal-text);
+  color: #fff;
+}
+
+.rk-ticket .rk-btn {
+  border-color: var(--rk-peach);
+  background: var(--rk-peach);
+  color: var(--rk-ink);
+  min-height: 3.25rem;
+}
+
+.rk-ticket .rk-btn:focus-visible {
+  outline-color: var(--rk-peach);
+  box-shadow: 0 0 0 3px var(--rk-ink);
+}
+
+.rk-link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.2em;
+}
+
+.rk-link-btn:hover {
+  text-decoration-thickness: 4px;
+}
+
+/* ---- Notices and states ---- */
+
+.rk-notice {
+  display: flex;
+  gap: var(--rk-s-3);
+  align-items: flex-start;
+  margin-bottom: var(--rk-s-5);
+  padding: var(--rk-s-4);
+  border: var(--rk-rule) solid var(--rk-ink);
+  background: var(--rk-peach-deep);
+  font-weight: 600;
+}
+
+.rk-notice--error {
+  border-color: var(--rk-signal-text);
+  color: var(--rk-signal-text);
+}
+
+.rk-notice__icon {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.rk-skeleton {
+  display: grid;
+  gap: var(--rk-s-3);
+}
+
+.rk-skeleton > span {
+  display: block;
+  height: 4.5rem;
+  background: var(--rk-peach-deep);
+  animation: rk-pulse 1.4s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 120ms);
+}
+
+.rk-error-panel {
+  padding: var(--rk-s-5);
+  border: var(--rk-rule) solid var(--rk-ink);
+  background: var(--rk-peach-deep);
+}
+
+.rk-error-panel p {
+  margin-bottom: var(--rk-s-4);
+  font-weight: 600;
+}
+
+.rk-error-panel p:last-child {
+  margin-bottom: 0;
+}
+
+.rk-footer {
+  margin-top: var(--rk-s-8);
+  padding-top: var(--rk-s-4);
+  border-top: var(--rk-hair) solid var(--rk-ink);
+  color: var(--rk-ink-soft);
+  font-size: var(--rk-text-sm);
+}

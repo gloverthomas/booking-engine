@@ -1,0 +1,258 @@
+/* Confirmation and manage-booking pages. */
+
+.rk-confirm {
+  max-width: 52rem;
+}
+
+.rk-confirm__title {
+  margin-top: var(--rk-s-6);
+  font-size: var(--rk-display);
+}
+
+.rk-confirm__lede {
+  margin-top: var(--rk-s-4);
+  max-width: 36rem;
+  font-size: var(--rk-text-md);
+}
+
+/* The booking "ticket": ink on peach, with a perforated stub. */
+.rk-stub {
+  position: relative;
+  margin-top: var(--rk-s-6);
+  background: var(--rk-ink);
+  color: var(--rk-peach);
+  animation: rk-rise var(--rk-dur) var(--rk-ease) both;
+  animation-delay: 120ms;
+}
+
+.rk-stub__main {
+  display: grid;
+  gap: var(--rk-s-4);
+  padding: var(--rk-s-5);
+}
+
+.rk-stub__when {
+  font-family: var(--rk-font-display);
+  font-weight: 900;
+  font-stretch: 88%;
+  font-size: var(--rk-text-xl);
+  letter-spacing: -0.03em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.rk-stub__rows {
+  display: grid;
+  gap: var(--rk-s-2);
+}
+
+.rk-stub__row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--rk-s-4);
+  font-size: var(--rk-text-base);
+}
+
+.rk-stub__row dt {
+  font-weight: 700;
+}
+
+.rk-stub__row dd {
+  text-align: right;
+}
+
+.rk-stub__perf {
+  position: relative;
+  margin-inline: var(--rk-s-4);
+  border-top: 2px dashed rgb(253 233 214 / 0.55);
+}
+
+.rk-stub__perf::before,
+.rk-stub__perf::after {
+  content: "";
+  position: absolute;
+  top: -0.75rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--rk-peach);
+}
+
+.rk-stub__perf::before {
+  left: calc(var(--rk-s-4) * -1 - 0.75rem);
+}
+
+.rk-stub__perf::after {
+  right: calc(var(--rk-s-4) * -1 - 0.75rem);
+}
+
+.rk-stub__totals {
+  display: grid;
+  gap: var(--rk-s-2);
+  padding: var(--rk-s-5);
+}
+
+.rk-stub__total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--rk-s-4);
+}
+
+.rk-stub__big {
+  font-family: var(--rk-font-display);
+  font-weight: 900;
+  font-stretch: 88%;
+  font-size: var(--rk-text-xl);
+  letter-spacing: -0.03em;
+}
+
+.rk-badge {
+  display: inline-block;
+  padding: 2px var(--rk-s-2);
+  border: 2px solid currentColor;
+  font-family: var(--rk-font-mono);
+  font-size: var(--rk-text-xs);
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.rk-badge--ok {
+  color: var(--rk-ok-text);
+}
+
+.rk-stub .rk-badge--ok {
+  color: #a8e6bd;
+}
+
+.rk-badge--warn {
+  color: var(--rk-signal-text);
+}
+
+.rk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rk-s-3);
+  margin-top: var(--rk-s-5);
+}
+
+.rk-actions .rk-btn {
+  flex: 1 1 14rem;
+}
+
+.rk-aside {
+  margin-top: var(--rk-s-6);
+  display: grid;
+  gap: var(--rk-s-5);
+}
+
+@media (min-width: 46rem) {
+  .rk-aside {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.rk-aside h2 {
+  margin-bottom: var(--rk-s-2);
+  padding-bottom: var(--rk-s-2);
+  border-bottom: var(--rk-hair) solid var(--rk-ink);
+  font-family: var(--rk-font-mono);
+  font-size: var(--rk-text-xs);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.rk-aside p + p {
+  margin-top: var(--rk-s-2);
+}
+
+.rk-spinner {
+  display: inline-block;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 3px solid rgb(11 11 11 / 0.2);
+  border-top-color: var(--rk-ink);
+  border-radius: 50%;
+  animation: rk-spin 0.8s linear infinite;
+}
+
+@keyframes rk-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- Manage: reschedule panel and cancel dialog ---- */
+
+.rk-panel {
+  margin-top: var(--rk-s-6);
+  padding: var(--rk-s-5);
+  border: var(--rk-rule) solid var(--rk-ink);
+  background: var(--rk-peach);
+  animation: rk-rise var(--rk-dur) var(--rk-ease) both;
+}
+
+.rk-panel__title {
+  margin-bottom: var(--rk-s-4);
+  font-family: var(--rk-font-display);
+  font-weight: 900;
+  font-stretch: 88%;
+  font-size: var(--rk-text-xl);
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+}
+
+.rk-dialog {
+  margin: auto; /* Tailwind preflight zeroes the UA centring margin */
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  padding: 0;
+  border: var(--rk-rule) solid var(--rk-ink);
+  background: var(--rk-peach);
+  color: var(--rk-ink);
+  overflow: auto;
+}
+
+.rk-dialog::backdrop {
+  background: rgb(11 11 11 / 0.62);
+}
+
+.rk-dialog[open] {
+  animation: rk-rise var(--rk-dur) var(--rk-ease) both;
+}
+
+.rk-dialog__body {
+  display: grid;
+  gap: var(--rk-s-4);
+  padding: var(--rk-s-5);
+}
+
+.rk-dialog__outcome .rk-badge {
+  justify-self: start;
+}
+
+.rk-dialog__outcome {
+  display: grid;
+  gap: var(--rk-s-2);
+  padding: var(--rk-s-4);
+  border: var(--rk-rule) solid var(--rk-ink);
+  background: var(--rk-peach-deep);
+  font-weight: 600;
+}
+
+.rk-dialog__outcome.is-forfeit {
+  border-color: var(--rk-signal-text);
+}
+
+.rk-dialog__buttons {
+  display: grid;
+  gap: var(--rk-s-3);
+}
+
+@media (min-width: 32rem) {
+  .rk-dialog__buttons {
+    grid-template-columns: 1fr 1fr;
+  }
+}

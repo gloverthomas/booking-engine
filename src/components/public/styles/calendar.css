@@ -1,0 +1,182 @@
+/* Month grid with availability dots. */
+
+.rk-cal {
+  border: var(--rk-rule) solid var(--rk-ink);
+  background: var(--rk-peach);
+}
+
+.rk-cal__head {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  border-bottom: var(--rk-rule) solid var(--rk-ink);
+}
+
+.rk-cal__title {
+  display: grid;
+  place-items: center;
+  flex: 1;
+  padding: var(--rk-s-3);
+  font-family: var(--rk-font-display);
+  font-weight: 900;
+  font-stretch: 88%;
+  font-size: var(--rk-text-md);
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+
+.rk-cal__nav {
+  display: grid;
+  place-items: center;
+  width: 3.25rem;
+  min-height: 3.25rem;
+  border: 0;
+  background: transparent;
+  touch-action: manipulation;
+}
+
+.rk-cal__nav:hover:not(:disabled) {
+  background: var(--rk-ink);
+  color: var(--rk-peach);
+}
+
+.rk-cal__nav:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.rk-cal__weekdays,
+.rk-cal__week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.rk-cal__weekdays {
+  border-bottom: var(--rk-hair) solid rgb(11 11 11 / 0.5);
+}
+
+.rk-cal__weekday {
+  padding: var(--rk-s-2) 0;
+  text-align: center;
+  font-family: var(--rk-font-mono);
+  font-size: var(--rk-text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rk-ink-soft);
+}
+
+.rk-cal__cell {
+  aspect-ratio: 1 / 1;
+  min-height: 2.75rem;
+  border-right: var(--rk-hair) solid rgb(11 11 11 / 0.18);
+  border-bottom: var(--rk-hair) solid rgb(11 11 11 / 0.18);
+}
+
+.rk-cal__cell:nth-child(7n) {
+  border-right: 0;
+}
+
+.rk-cal__day {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--rk-font-mono);
+  font-size: var(--rk-text-base);
+  font-weight: 500;
+  isolation: isolate;
+  touch-action: manipulation;
+}
+
+.rk-cal__day::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--rk-ink);
+  transform: scale(0.001);
+  transition: transform var(--rk-dur-fast) var(--rk-ease);
+}
+
+/* Availability dot, sits under the number. */
+.rk-cal__day::after {
+  content: "";
+  position: absolute;
+  bottom: 18%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 50%;
+  background: var(--rk-signal);
+  opacity: 0;
+}
+
+.rk-cal__day.is-available::after {
+  opacity: 1;
+}
+
+.rk-cal__day:disabled {
+  color: rgb(11 11 11 / 0.32);
+  cursor: not-allowed;
+}
+
+.rk-cal__day:hover:not(:disabled)::before {
+  transform: scale(0.14);
+}
+
+.rk-cal__day[aria-pressed="true"] {
+  color: var(--rk-peach);
+  transition: color 0s linear 60ms;
+}
+
+.rk-cal__day[aria-pressed="true"]::before {
+  transform: scale(1);
+}
+
+.rk-cal__day[aria-pressed="true"]::after {
+  background: var(--rk-peach);
+}
+
+.rk-cal__day.is-today .rk-cal__num {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.2em;
+}
+
+.rk-cal__status {
+  padding: var(--rk-s-3) var(--rk-s-4);
+  border-top: var(--rk-hair) solid rgb(11 11 11 / 0.5);
+  font-size: var(--rk-text-sm);
+  color: var(--rk-ink-soft);
+}
+
+.rk-cal__status .rk-link-btn {
+  color: var(--rk-ink);
+}
+
+.rk-cal.is-loading .rk-cal__week {
+  opacity: 0.5;
+  animation: rk-pulse 1.2s ease-in-out infinite;
+}
+
+.rk-cal__legend {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-s-2);
+  padding: var(--rk-s-2) var(--rk-s-4);
+  border-top: var(--rk-hair) solid rgb(11 11 11 / 0.5);
+  font-size: var(--rk-text-xs);
+  color: var(--rk-ink-soft);
+}
+
+.rk-cal__legend i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--rk-signal);
+}

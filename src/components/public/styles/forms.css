@@ -1,0 +1,204 @@
+/* Details form: underline-style fields, checkboxes, policy box. */
+
+.rk-form {
+  display: grid;
+  gap: var(--rk-s-6);
+}
+
+.rk-fieldset {
+  border: 0;
+  min-width: 0;
+}
+
+.rk-fieldset__legend {
+  display: block;
+  width: 100%;
+  margin-bottom: var(--rk-s-4);
+  padding-bottom: var(--rk-s-2);
+  border-bottom: var(--rk-hair) solid var(--rk-ink);
+  font-family: var(--rk-font-mono);
+  font-size: var(--rk-text-xs);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.rk-fields {
+  display: grid;
+  gap: var(--rk-s-4);
+}
+
+@media (min-width: 40rem) {
+  .rk-fields--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--rk-s-5);
+  }
+  .rk-field--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.rk-field {
+  display: grid;
+  gap: var(--rk-s-1);
+  align-content: start;
+}
+
+.rk-field__label {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--rk-s-2);
+  font-weight: 800;
+  font-size: var(--rk-text-sm);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rk-field__opt {
+  font-family: var(--rk-font-mono);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--rk-ink-soft);
+}
+
+.rk-input {
+  width: 100%;
+  min-height: 3.25rem;
+  padding: var(--rk-s-3);
+  border: 0;
+  border-bottom: var(--rk-rule) solid var(--rk-ink);
+  border-radius: 0;
+  background: var(--rk-peach-deep);
+  font-size: 1rem; /* 16px keeps iOS from zooming on focus */
+  appearance: none;
+}
+
+textarea.rk-input {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+.rk-input::placeholder {
+  color: rgb(91 70 54 / 0.8);
+}
+
+.rk-input[aria-invalid="true"] {
+  border-bottom-color: var(--rk-signal-text);
+  background: #f9cdb4;
+}
+
+.rk-field__error {
+  color: var(--rk-signal-text);
+  font-size: var(--rk-text-sm);
+  font-weight: 700;
+}
+
+.rk-field__hint {
+  color: var(--rk-ink-soft);
+  font-size: var(--rk-text-sm);
+}
+
+/* ---- Checkbox ---- */
+
+.rk-check {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--rk-s-3);
+  align-items: start;
+  cursor: pointer;
+}
+
+.rk-check__input {
+  position: absolute;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.rk-check__box {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 3px solid var(--rk-ink);
+  background: var(--rk-peach);
+}
+
+.rk-check__box svg {
+  opacity: 0;
+  transform: scale(0.4);
+  transition:
+    transform var(--rk-dur-fast) var(--rk-ease),
+    opacity var(--rk-dur-fast) var(--rk-ease);
+}
+
+.rk-check__input:checked + .rk-check__box {
+  background: var(--rk-ink);
+  color: var(--rk-peach);
+}
+
+.rk-check__input:checked + .rk-check__box svg {
+  opacity: 1;
+  transform: none;
+}
+
+.rk-check__input:focus-visible + .rk-check__box {
+  outline: 3px solid var(--rk-ink);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px var(--rk-peach);
+}
+
+.rk-check__input[aria-invalid="true"] + .rk-check__box {
+  border-color: var(--rk-signal-text);
+}
+
+.rk-check__text {
+  padding-top: 0.15rem;
+}
+
+.rk-check__text small {
+  display: block;
+  color: var(--rk-ink-soft);
+  font-size: var(--rk-text-sm);
+}
+
+/* ---- Policy ---- */
+
+.rk-policy {
+  display: grid;
+  gap: var(--rk-s-4);
+  padding: var(--rk-s-4);
+  border: var(--rk-rule) solid var(--rk-ink);
+  background: var(--rk-peach-deep);
+}
+
+.rk-policy__text {
+  max-height: 11rem;
+  overflow: auto;
+  padding-right: var(--rk-s-2);
+  font-size: var(--rk-text-sm);
+  white-space: pre-line;
+}
+
+.rk-policy.is-invalid {
+  border-color: var(--rk-signal-text);
+}
+
+.rk-welcome {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rk-s-2) var(--rk-s-4);
+  align-items: baseline;
+  justify-content: space-between;
+  padding: var(--rk-s-3) var(--rk-s-4);
+  border: 2px dashed var(--rk-ink);
+  font-size: var(--rk-text-sm);
+}
+
+.rk-turnstile {
+  min-height: 0;
+}
