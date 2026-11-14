@@ -30,6 +30,11 @@ export function SiteFooter() {
               <li>
                 <a href={`${SITE.appUrl}/book`}>Book an appointment</a>
               </li>
+              <li>
+                <a href={`${SITE.appUrl}/login`} rel="nofollow">
+                  Staff sign in
+                </a>
+              </li>
             </ul>
           </div>
           <div>

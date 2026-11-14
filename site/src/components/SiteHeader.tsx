@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SITE } from "@/lib/entity";
 
 export function SiteHeader() {
   return (
@@ -17,6 +18,9 @@ export function SiteHeader() {
           <Link href="/#claude" className="nav__hide">
             Ask Claude
           </Link>
+          <a href={`${SITE.appUrl}/login`} className="nav__hide" rel="nofollow">
+            Staff sign in
+          </a>
           <Link href="/contact" className="btn btn--ink">
             Contact
           </Link>
