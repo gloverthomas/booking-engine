@@ -54,8 +54,8 @@ export interface CreateStaffBookingInput {
   client: { existingClientId: string } | { newClient: NewClientDetails };
   comments?: string;
   /**
-   * Whether the owner wants the client told. Recorded in the audit trail; sending is decided by the
-   * notifications module (see report: confirmBooking has no notify flag yet).
+   * Whether the owner wants the client told. Passed to confirmBooking, which carries it on the
+   * booking.confirmed event so the notifications module skips the client messages and reminder.
    */
   notifyClient: boolean;
 }
@@ -98,7 +98,9 @@ export async function createStaffBooking(
   });
 
   try {
-    await ctx.domain.confirmBooking(ctx.db, hold.bookingId);
+    await ctx.domain.confirmBooking(ctx.db, hold.bookingId, {
+      notifyClient: input.notifyClient,
+    });
   } catch (error) {
     // Free the slot so an immediate retry does not collide with our own hold.
     try {
@@ -155,6 +157,7 @@ export async function cancelStaffBooking(
     by: "staff",
     reason: input.reason,
     forceRefund: input.depositMode === "refund",
+    keepDeposit: input.depositMode === "keep",
   });
   await audit(ctx, "booking.cancelled_by_staff", input.bookingId, {
     depositMode: input.depositMode,

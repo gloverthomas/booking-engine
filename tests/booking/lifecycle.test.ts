@@ -33,8 +33,18 @@ describe("confirmBooking", () => {
     const row = await bookingRow(w.db, bookingId);
     expect(row.status).toBe("confirmed");
     expect(row.holdExpiresAt).toBeNull();
-    expect(await eventsOfType(w.db, "booking.confirmed")).toEqual([{ bookingId }]);
+    expect(await eventsOfType(w.db, "booking.confirmed")).toEqual([
+      { bookingId, notifyClient: true },
+    ]);
     expect(await auditActions(w.db, bookingId)).toContain("booking.confirm");
+  });
+
+  test("carries notifyClient=false on the event when staff chose not to tell the client", async () => {
+    const { bookingId } = await hold(w);
+    await confirmBooking(w.db, bookingId, minutes(5), { notifyClient: false });
+    expect(await eventsOfType(w.db, "booking.confirmed")).toEqual([
+      { bookingId, notifyClient: false },
+    ]);
   });
 
   test("is idempotent: a second confirmation changes nothing and emits no second event", async () => {

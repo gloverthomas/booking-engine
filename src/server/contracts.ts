@@ -26,7 +26,8 @@ export interface AvailableSlot extends TimeSlot {
 export interface ClientInput {
   firstName: string;
   lastName: string;
-  email: string;
+  /** Optional for staff-created bookings; online booking requires it. */
+  email?: string;
   /** E.164 after normalisation. */
   phone: string;
   pronouns?: string;
@@ -66,12 +67,14 @@ export interface CancelInput {
   reason?: string;
   /** Staff only: override the policy (e.g. always refund). */
   forceRefund?: boolean;
+  /** Staff only: keep the deposit instead of refunding it (no extra fee). Ignored when forceRefund is set. */
+  keepDeposit?: boolean;
   now?: Date;
 }
 
 export interface CancelOutcome {
   bookingId: string;
-  status: "cancelled_by_client" | "cancelled_by_staff" | "late_cancelled";
+  status: "cancelled_by_client" | "cancelled_by_staff" | "late_cancelled" | "no_show";
   depositAction: "refund" | "keep" | "none";
   /** Extra fee to charge the saved card (0 when none). */
   feeCents: number;

@@ -8,6 +8,8 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    // Never connects: DB tests use in-process Postgres. Lets getEnv() succeed in unit tests.
+    env: { DATABASE_URL: "postgres://test:test@localhost:5432/test" },
     testTimeout: 30_000,
     // In-process Postgres (PGlite) starts slowly when many test files boot it in parallel.
     hookTimeout: 120_000,

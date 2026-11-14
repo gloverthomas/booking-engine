@@ -45,7 +45,12 @@ export async function expireHolds(db: Db, now: Date = new Date()): Promise<numbe
  * Called by payments once the deposit has succeeded (or immediately when depositCents is 0).
  * Idempotent: confirming an already confirmed booking is a no-op.
  */
-export async function confirmBooking(db: Db, bookingId: string, now: Date = new Date()) {
+export async function confirmBooking(
+  db: Db,
+  bookingId: string,
+  now: Date = new Date(),
+  options: { notifyClient?: boolean } = {},
+) {
   await db.transaction(async (tx) => {
     const row = await loadBookingForUpdate(tx, bookingId);
     if (row.status === "confirmed") return;
@@ -61,7 +66,11 @@ export async function confirmBooking(db: Db, bookingId: string, now: Date = new 
       .update(booking)
       .set({ status: "confirmed", holdExpiresAt: null, updatedAt: now })
       .where(eq(booking.id, bookingId));
-    await emitDomainEvent(tx, { type: "booking.confirmed", bookingId });
+    await emitDomainEvent(tx, {
+      type: "booking.confirmed",
+      bookingId,
+      notifyClient: options.notifyClient ?? true,
+    });
     await recordAudit(tx, {
       actor: "system",
       action: "booking.confirm",
@@ -135,6 +144,6 @@ export async function markNoShow(
       entityId: bookingId,
       data: { feeCents },
     });
-    return { bookingId, status: "late_cancelled", depositAction: "keep", feeCents };
+    return { bookingId, status: "no_show", depositAction: "keep", feeCents };
   });
 }

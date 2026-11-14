@@ -145,6 +145,27 @@ describe("decideCancellation", () => {
     ).toEqual({ status: "cancelled_by_staff", depositAction: "refund", feeCents: 0 });
   });
 
+  test("staff keepDeposit forfeits the deposit with no extra fee; forceRefund still wins", () => {
+    expect(
+      decideCancellation({
+        ...base,
+        by: "staff",
+        now: hoursBefore(48),
+        keepDeposit: true,
+        settings: { ...settings, extraFeePct: 50 },
+      }),
+    ).toEqual({ status: "cancelled_by_staff", depositAction: "keep", feeCents: 0 });
+    expect(
+      decideCancellation({
+        ...base,
+        by: "staff",
+        now: hoursBefore(48),
+        keepDeposit: true,
+        forceRefund: true,
+      }),
+    ).toEqual({ status: "cancelled_by_staff", depositAction: "refund", feeCents: 0 });
+  });
+
   test("forceRefund overrides a late cancellation: refund, no fee, not late_cancelled", () => {
     expect(
       decideCancellation({

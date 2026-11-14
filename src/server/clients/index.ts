@@ -35,7 +35,7 @@ const clientInput = z.object({
 interface NormalisedClient {
   firstName: string;
   lastName: string;
-  email: string;
+  email: string | null;
   phone: string;
   pronouns?: string;
   marketingOptIn?: boolean;
@@ -46,11 +46,12 @@ function normaliseInput(input: ClientInput): NormalisedClient {
   const parsed = clientInput.safeParse(input);
   if (!parsed.success)
     issues.push(...parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`));
-  const email = normalizeEmail(input.email);
-  if (!email) issues.push("email: Enter a valid email address");
+  const provided = Boolean(input.email?.trim());
+  const email = provided ? normalizeEmail(input.email ?? "") : null;
+  if (provided && !email) issues.push("email: Enter a valid email address");
   const phone = normalizePhone(input.phone);
   if (!phone) issues.push("phone: Enter a valid mobile number");
-  if (!parsed.success || !email || !phone)
+  if (!parsed.success || (provided && !email) || !phone)
     throw new ValidationError("Invalid client details", issues);
   return { ...parsed.data, email, phone };
 }
@@ -76,14 +77,20 @@ async function pickMatch(db: Db, rows: ClientRecord[]): Promise<ClientRecord | n
   return live ?? resolveSurvivor(db, rows[0]);
 }
 
-async function findMatch(db: Db, email: string, phone: string): Promise<ClientRecord | null> {
-  const byEmail = await db
-    .select()
-    .from(client)
-    .where(eq(sql`lower(${client.email})`, email))
-    .orderBy(client.createdAt);
-  const emailMatch = await pickMatch(db, byEmail);
-  if (emailMatch) return emailMatch;
+async function findMatch(
+  db: Db,
+  email: string | null,
+  phone: string,
+): Promise<ClientRecord | null> {
+  if (email) {
+    const byEmail = await db
+      .select()
+      .from(client)
+      .where(eq(sql`lower(${client.email})`, email))
+      .orderBy(client.createdAt);
+    const emailMatch = await pickMatch(db, byEmail);
+    if (emailMatch) return emailMatch;
+  }
 
   const byPhone = await db
     .select()
@@ -137,7 +144,7 @@ export async function findOrCreateClient(
     ) {
       changes.marketingOptIn = details.marketingOptIn;
     }
-    if (!existing.email) changes.email = details.email;
+    if (!existing.email && details.email) changes.email = details.email;
     if (!existing.phone) changes.phone = details.phone;
     if (Object.keys(changes).length === 0) return existing;
 

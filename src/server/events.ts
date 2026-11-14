@@ -4,7 +4,12 @@ import type { Db } from "./db-types";
 
 /** Everything other modules may react to. Add new members here; consumers ignore types they don't care about. */
 export type DomainEvent =
-  | { type: "booking.confirmed"; bookingId: string }
+  | {
+      type: "booking.confirmed";
+      bookingId: string;
+      /** False for staff-created bookings where the owner chose not to tell the client. Default true. */
+      notifyClient?: boolean;
+    }
   | {
       type: "booking.cancelled";
       bookingId: string;

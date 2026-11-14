@@ -34,6 +34,8 @@ export interface CancelDecisionInput {
   settings: PolicySettings;
   /** Override the policy: always refund the deposit, no fee. */
   forceRefund?: boolean;
+  /** Staff only: keep the deposit rather than refund it. */
+  keepDeposit?: boolean;
 }
 
 export function decideCancellation(input: CancelDecisionInput): Omit<CancelOutcome, "bookingId"> {
@@ -42,6 +44,9 @@ export function decideCancellation(input: CancelDecisionInput): Omit<CancelOutco
   // Nothing has been paid on a pending booking, so there is nothing to refund or keep.
   if (input.bookingStatus === "pending_payment") {
     return { status: plainStatus, depositAction: "none", feeCents: 0 };
+  }
+  if (input.by === "staff" && input.keepDeposit && !input.forceRefund) {
+    return { status: plainStatus, depositAction: "keep", feeCents: 0 };
   }
   if (input.by === "staff" || input.forceRefund) {
     return { status: plainStatus, depositAction: "refund", feeCents: 0 };

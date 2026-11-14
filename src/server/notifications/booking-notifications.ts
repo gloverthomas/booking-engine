@@ -48,6 +48,8 @@ async function load(db: Db, deps: NotificationDeps, bookingId: string, why: stri
 export interface ConfirmationOptions {
   /** Admin "resend": a fresh dedupe key so it really sends again, and no owner alert. */
   resendToken?: string;
+  /** Staff chose not to tell the client: only the owner alert is sent. */
+  skipClient?: boolean;
 }
 
 /** Confirmation email (+ .ics) and SMS to the client, and an alert to the owner. */
@@ -66,7 +68,7 @@ export async function notifyBookingConfirmed(
   const suffix = options.resendToken ? `@resend-${options.resendToken}` : "";
   const dedupeBase = `confirmation${suffix}`;
 
-  const tasks: Task[] = [
+  const clientTasks: Task[] = [
     clientEmailTask({
       db,
       deps,
@@ -90,6 +92,7 @@ export async function notifyBookingConfirmed(
       body: () => smsConfirmation({ ctx, manageUrl: manageUrlFor(deps, bookingId) }),
     }),
   ];
+  const tasks: Task[] = options.skipClient ? [] : clientTasks;
   if (!options.resendToken) {
     tasks.push(
       ownerEmailTask({

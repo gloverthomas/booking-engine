@@ -27,7 +27,11 @@ const reminderJobSchema = z.object({
 export type ReminderJob = z.infer<typeof reminderJobSchema>;
 
 const eventSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("booking.confirmed"), bookingId: z.uuid() }),
+  z.object({
+    type: z.literal("booking.confirmed"),
+    bookingId: z.uuid(),
+    notifyClient: z.boolean().optional(),
+  }),
   z.object({
     type: z.literal("booking.rescheduled"),
     bookingId: z.uuid(),
@@ -92,6 +96,10 @@ export async function handleNotificationEvent(
 
   switch (event.type) {
     case "booking.confirmed":
+      if (event.notifyClient === false) {
+        await notifyBookingConfirmed(db, event.bookingId, deps, { skipClient: true });
+        return;
+      }
       await notifyBookingConfirmed(db, event.bookingId, deps);
       await scheduleReminder(context, event.bookingId);
       return;

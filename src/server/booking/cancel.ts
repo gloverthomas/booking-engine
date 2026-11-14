@@ -35,6 +35,7 @@ export async function cancelBooking(
       totalCents: row.totalCents,
       settings,
       forceRefund: input.forceRefund,
+      keepDeposit: input.keepDeposit,
     });
 
     await tx
@@ -67,6 +68,7 @@ export async function cancelBooking(
         feeCents: decision.feeCents,
         reason: input.reason ?? null,
         forceRefund: input.forceRefund ?? false,
+        keepDeposit: input.keepDeposit ?? false,
       },
     });
 

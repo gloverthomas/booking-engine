@@ -223,7 +223,7 @@ async function onIntentSucceeded(ctx: Context, intent: Intent): Promise<void> {
     .update(payment)
     .set({ ...succeeded, metadata })
     .where(eq(payment.id, row.id));
-  if (b?.status === "pending_payment") await confirmBooking(ctx.tx, b.id, ctx.now);
+  if (b?.status === "pending_payment") await confirmBooking(ctx.tx, b.id, ctx.eventAt);
   await emitDomainEvent(ctx.tx, { type: "payment.succeeded", paymentId: row.id });
 }
 

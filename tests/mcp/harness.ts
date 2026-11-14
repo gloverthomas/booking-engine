@@ -33,7 +33,7 @@ export function createFakeServices(
       const [existing] = await db()
         .select()
         .from(client)
-        .where(eq(client.email, input.client.email));
+        .where(eq(client.email, input.client.email ?? ""));
       const [c] = existing
         ? [existing]
         : await db()

@@ -122,7 +122,9 @@ describe("createStaffBooking", () => {
       comments: "Walk-in rebook",
       client: { firstName: "Sam", lastName: "Client", email: "sam@example.com" },
     });
-    expect(domain.confirmBooking).toHaveBeenCalledWith(t.db, result.bookingId);
+    expect(domain.confirmBooking).toHaveBeenCalledWith(t.db, result.bookingId, {
+      notifyClient: expect.any(Boolean),
+    });
     const [audit] = await audits();
     expect(audit).toMatchObject({
       actor: "owner:u1",
@@ -230,6 +232,7 @@ describe("cancelStaffBooking", () => {
       by: "staff",
       reason: "Client unwell",
       forceRefund: true,
+      keepDeposit: false,
     });
     expect(outcome.depositAction).toBe("refund");
     expect((await audits())[0]).toMatchObject({ action: "booking.cancelled_by_staff" });
@@ -238,7 +241,10 @@ describe("cancelStaffBooking", () => {
   test("keep mode leaves the policy to decide", async () => {
     const b = await addBooking();
     await cancelStaffBooking(ctx, { bookingId: b.id, depositMode: "keep" });
-    expect(domain.cancelBooking.mock.calls[0][1]).toMatchObject({ forceRefund: false });
+    expect(domain.cancelBooking.mock.calls[0][1]).toMatchObject({
+      forceRefund: false,
+      keepDeposit: true,
+    });
   });
 });
 

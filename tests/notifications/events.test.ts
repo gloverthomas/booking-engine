@@ -56,6 +56,19 @@ describe("booking.confirmed", () => {
     expect(jobs[0].data).toEqual({ bookingId: id, expectedStart: START.toISOString() });
   });
 
+  test("notifyClient=false sends only the owner alert and schedules no reminder", async () => {
+    const id = await createBooking(h);
+    await handleNotificationEvent(ctx, {
+      eventId: "e1",
+      type: "booking.confirmed",
+      bookingId: id,
+      notifyClient: false,
+    });
+    expect(h.sms.sent).toHaveLength(0);
+    expect(h.email.sent).toHaveLength(1);
+    expect(jobs).toHaveLength(0);
+  });
+
   test("honours settings.reminderHoursBefore", async () => {
     await h.db
       .update(business)

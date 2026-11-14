@@ -13,11 +13,13 @@ vi.mock("@/server/payments", () => ({
   recordManualPayment: vi.fn(async () => "record"),
   refundPayment: vi.fn(async () => "refund"),
 }));
+vi.mock("@/server/clients", () => ({ mergeClients: vi.fn(async () => "merged") }));
 vi.mock("@/server/notifications", () => ({ resendConfirmation: vi.fn(async () => "resend") }));
 
 import * as booking from "@/server/booking";
 import * as payments from "@/server/payments";
 import * as notifications from "@/server/notifications";
+import * as clients from "@/server/clients";
 import { realDomain } from "@/server/admin/domain";
 
 const db = {} as Db;
@@ -28,7 +30,7 @@ describe("realDomain delegates to the owning modules", () => {
   test("booking lifecycle", async () => {
     const hold = { locationId: "l" } as never;
     await realDomain.createHold(db, hold);
-    await realDomain.confirmBooking(db, "b");
+    await realDomain.confirmBooking(db, "b", { notifyClient: false });
     const cancel = { bookingId: "b", by: "staff" } as never;
     await realDomain.cancelBooking(db, cancel);
     const move = { bookingId: "b" } as never;
@@ -37,7 +39,9 @@ describe("realDomain delegates to the owning modules", () => {
     await realDomain.completeBooking(db, "b");
 
     expect(booking.createHold).toHaveBeenCalledWith(db, hold);
-    expect(booking.confirmBooking).toHaveBeenCalledWith(db, "b");
+    expect(booking.confirmBooking).toHaveBeenCalledWith(db, "b", expect.any(Date), {
+      notifyClient: false,
+    });
     expect(booking.cancelBooking).toHaveBeenCalledWith(db, cancel);
     expect(booking.rescheduleBooking).toHaveBeenCalledWith(db, move);
     expect(booking.markNoShow).toHaveBeenCalledWith(db, "b");
@@ -55,7 +59,8 @@ describe("realDomain delegates to the owning modules", () => {
     expect(notifications.resendConfirmation).toHaveBeenCalledWith(db, "b");
   });
 
-  test("mergeClients is a guarded placeholder until the clients module merges", async () => {
-    await expect(realDomain.mergeClients(db, "a", "b")).rejects.toThrow();
+  test("mergeClients maps (keep, duplicate) onto the clients module's (from = duplicate, to = keep)", async () => {
+    await realDomain.mergeClients(db, "keep-id", "dup-id");
+    expect(clients.mergeClients).toHaveBeenCalledWith(db, "dup-id", "keep-id");
   });
 });

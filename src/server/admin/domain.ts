@@ -14,6 +14,7 @@ import {
   markNoShow,
   rescheduleBooking,
 } from "../booking";
+import { mergeClients } from "../clients";
 import { recordManualPayment, refundPayment } from "../payments";
 import { resendConfirmation } from "../notifications";
 
@@ -23,7 +24,7 @@ import { resendConfirmation } from "../notifications";
  */
 export interface AdminDomain {
   createHold(db: Db, input: CreateHoldInput): Promise<HoldResult>;
-  confirmBooking(db: Db, bookingId: string): Promise<void>;
+  confirmBooking(db: Db, bookingId: string, options?: { notifyClient?: boolean }): Promise<void>;
   cancelBooking(db: Db, input: CancelInput): Promise<CancelOutcome>;
   rescheduleBooking(db: Db, input: RescheduleInput): Promise<void>;
   markNoShow(db: Db, bookingId: string): Promise<CancelOutcome>;
@@ -45,7 +46,7 @@ export interface AdminDomain {
 
 export const realDomain: AdminDomain = {
   createHold: (db, input) => createHold(db, input),
-  confirmBooking: (db, bookingId) => confirmBooking(db, bookingId),
+  confirmBooking: (db, bookingId, options) => confirmBooking(db, bookingId, new Date(), options),
   cancelBooking: (db, input) => cancelBooking(db, input),
   rescheduleBooking: (db, input) => rescheduleBooking(db, input),
   markNoShow: (db, bookingId) => markNoShow(db, bookingId),
@@ -53,9 +54,7 @@ export const realDomain: AdminDomain = {
   recordManualPayment: (db, input) => recordManualPayment(db, input),
   refundPayment: (db, paymentId, amountCents) => refundPayment(db, paymentId, amountCents),
   resendConfirmation: (db, bookingId) => resendConfirmation(db, bookingId),
-  // INTEGRATOR: replace this body with `return mergeClients(db, keepClientId, duplicateClientId)`
-  // imported from "../clients" once workstream A's src/server/clients/** has merged.
-  mergeClients: async () => {
-    throw new Error("mergeClients is not available until the clients module is merged");
-  },
+  // A's mergeClients takes (db, fromId = duplicate, toId = survivor).
+  mergeClients: (db, keepClientId, duplicateClientId) =>
+    mergeClients(db, duplicateClientId, keepClientId),
 };
