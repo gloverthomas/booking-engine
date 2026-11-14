@@ -34,6 +34,21 @@ const envSchema = z.object({
   CLICKSEND_API_KEY: z.string().optional(),
   XERO_CLIENT_ID: z.string().optional(),
   XERO_CLIENT_SECRET: z.string().optional(),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_FROM: z.string().optional(),
+  /** Comma-separated origins allowed to embed /book in an iframe. */
+  PUBLIC_EMBED_ORIGINS: z.string().optional(),
+  PUBLIC_TRUSTED_PROXY_HOPS: z.string().optional(),
+  /** MCP server (see src/server/mcp). Prefer the hash; generate with `openssl rand -hex 32`. */
+  MCP_API_TOKEN_HASH: z.string().optional(),
+  MCP_API_TOKEN: z.string().optional(),
+  MCP_OWNER_ID: z.string().optional(),
+  MCP_MONEY_TOOLS_ENABLED: z.string().optional(),
+  MCP_MAX_MONEY_CENTS: z.string().optional(),
+  MCP_MAX_MONEY_DAILY_CENTS: z.string().optional(),
+  MCP_RATE_LIMIT_PER_MIN: z.string().optional(),
+  MCP_WRITE_RATE_LIMIT_PER_MIN: z.string().optional(),
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().optional(),
   TURNSTILE_SECRET_KEY: z.string().optional(),
   BUSINESS_TIMEZONE: z

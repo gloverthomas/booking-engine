@@ -1,13 +1,12 @@
 /**
- * Local stand-ins for the shared UI kit (workstream D owns src/components/ui). Plain elements with obvious
- * names, so the integrator can replace this whole file with one import:
- *
- *   export { Card, Button, LinkButton, Input, Select, Field, Table, Badge } from "@/components/ui";
+ * UI primitives for the reports pages. Buttons use the shared kit's styles (src/components/ui); the
+ * card, field, table and status pieces keep report-specific markup styled by the reports stylesheet.
  *
  * Nothing else under (admin)/reports imports a UI primitive from anywhere but here.
  */
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import Link from "next/link";
+import { buttonClasses } from "@/components/ui";
 
 export function Card({ children, ...rest }: ComponentPropsWithoutRef<"section">) {
   return (
@@ -21,7 +20,13 @@ export function Button({
   variant = "solid",
   ...rest
 }: ComponentPropsWithoutRef<"button"> & { variant?: "solid" | "ghost" }) {
-  return <button className="rpt-btn" data-variant={variant} {...rest} />;
+  return (
+    <button
+      className={buttonClasses({ variant: variant === "ghost" ? "ghost" : "primary" })}
+      data-variant={variant}
+      {...rest}
+    />
+  );
 }
 
 export function LinkButton({
@@ -31,7 +36,11 @@ export function LinkButton({
   ...rest
 }: Omit<ComponentPropsWithoutRef<"a">, "href"> & { href: string; variant?: "solid" | "ghost" }) {
   const external = rest.download !== undefined;
-  const props = { className: "rpt-btn", "data-variant": variant, ...rest };
+  const props = {
+    className: buttonClasses({ variant: variant === "ghost" ? "secondary" : "primary" }),
+    "data-variant": variant,
+    ...rest,
+  };
   // Downloads must be plain anchors (a client-side navigation would try to render the CSV as a page).
   return external ? (
     <a href={href} {...props}>

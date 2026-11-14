@@ -1,23 +1,30 @@
 import { PageBoundary } from "@/components/admin/shell/page-boundary";
 import type { Metadata } from "next";
 import { getDb } from "@/db/client";
+import { Alert } from "@/components/ui";
 import { PageHeader } from "@/components/ui/page-header";
+import { parseIntegrationBanner } from "@/server/admin-foundation/integration-banner";
 import { getAdminSettings } from "@/server/admin-foundation/settings-admin";
 import { requireOwner } from "@/server/auth";
 import { SettingsForm } from "./_components/settings-form";
 
 export const metadata: Metadata = { title: "Settings" };
 
-export default function SettingsPage() {
+interface SettingsPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default function SettingsPage({ searchParams }: SettingsPageProps) {
   return (
     <PageBoundary>
-      <SettingsBody />
+      <SettingsBody searchParams={searchParams} />
     </PageBoundary>
   );
 }
 
-async function SettingsBody() {
+async function SettingsBody({ searchParams }: SettingsPageProps) {
   await requireOwner();
+  const banner = parseIntegrationBanner(await searchParams);
   const { settings } = await getAdminSettings(getDb());
   return (
     <div className="flex flex-col gap-6">
@@ -26,6 +33,7 @@ async function SettingsBody() {
         title="Business rules"
         description="Deposits, cancellation rules and how the booking page behaves."
       />
+      {banner ? <Alert tone={banner.tone}>{banner.text}</Alert> : null}
       <SettingsForm initial={settings} />
     </div>
   );
