@@ -1,0 +1,153 @@
+/* Calendar skin. Colour is by location; status changes the treatment, not the hue. */
+
+.admin-calendar {
+  --cal-loc-0: #0f5c5c;
+  --cal-loc-1: #7a3b69;
+  --cal-loc-2: #8a4b12;
+  --cal-loc-3: #2f4b8c;
+  --cal-loc-4: #5b6b1f;
+  --cal-loc-5: #8c2f3d;
+  --cal-block: #d6d3d1;
+  --cal-block-text: #44403c;
+  --fc-border-color: #e7e5e4;
+  --fc-now-indicator-color: #dc2626;
+  --fc-today-bg-color: #fafaf9;
+  --fc-page-bg-color: #ffffff;
+  --fc-neutral-bg-color: #f5f5f4;
+  --fc-event-border-color: transparent;
+  --fc-small-font-size: 0.8125rem;
+  font-size: 0.875rem;
+}
+
+.admin-calendar .fc-timegrid-slot {
+  height: 1.6rem;
+}
+
+@media (pointer: coarse) {
+  .admin-calendar .fc-timegrid-slot {
+    height: 2.25rem;
+  }
+}
+
+.admin-calendar .fc-timegrid-slot-label-cushion {
+  font-size: 0.75rem;
+  color: #78716c;
+}
+
+.admin-calendar .fc-col-header-cell-cushion {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  padding: 0 0.25rem;
+  color: #292524;
+  text-decoration: none;
+}
+
+.admin-calendar .fc-day-today .fc-col-header-cell-cushion {
+  font-weight: 700;
+}
+
+.admin-calendar .fc-event {
+  cursor: pointer;
+  border-radius: 0.5rem;
+  border-width: 0;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.18);
+}
+
+.admin-calendar .cal-ev {
+  --fc-event-text-color: #fff;
+  color: #fff;
+  background-color: var(--cal-loc-0);
+}
+.admin-calendar .cal-loc-0 {
+  background-color: var(--cal-loc-0);
+}
+.admin-calendar .cal-loc-1 {
+  background-color: var(--cal-loc-1);
+}
+.admin-calendar .cal-loc-2 {
+  background-color: var(--cal-loc-2);
+}
+.admin-calendar .cal-loc-3 {
+  background-color: var(--cal-loc-3);
+}
+.admin-calendar .cal-loc-4 {
+  background-color: var(--cal-loc-4);
+}
+.admin-calendar .cal-loc-5 {
+  background-color: var(--cal-loc-5);
+}
+
+/* Awaiting a deposit: hatched, so it reads as not yet firm. */
+.admin-calendar .cal-status-pending_payment {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.18) 0 6px,
+    transparent 6px 12px
+  );
+  outline: 2px dashed rgb(255 255 255 / 0.7);
+  outline-offset: -3px;
+}
+
+.admin-calendar .cal-status-completed {
+  opacity: 0.62;
+}
+
+.admin-calendar .cal-status-no_show {
+  opacity: 0.8;
+  box-shadow: inset 0 0 0 2px #fca5a5;
+}
+
+.admin-calendar .cal-block,
+.admin-calendar .cal-external {
+  --fc-event-text-color: var(--cal-block-text);
+  color: var(--cal-block-text);
+  background-color: var(--cal-block);
+  background-image: repeating-linear-gradient(45deg, rgb(0 0 0 / 0.07) 0 5px, transparent 5px 10px);
+  box-shadow: none;
+}
+
+.admin-calendar .cal-external {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.admin-calendar .cal-ev-inner {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px 6px;
+  line-height: 1.2;
+}
+
+.admin-calendar .cal-ev-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.admin-calendar .cal-ev-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+.admin-calendar .fc-timegrid-event-short .cal-ev-inner {
+  flex-direction: row;
+  gap: 6px;
+  align-items: center;
+}
+
+.admin-calendar .fc-highlight {
+  background: rgb(15 92 92 / 0.18);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .admin-calendar .fc-event {
+    transition: opacity 120ms ease-out;
+  }
+}
