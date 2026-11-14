@@ -4,6 +4,7 @@
  * its domain event inside the same transaction. Refunds and fees are NOT performed here: the payments
  * consumer reacts to booking.cancelled / booking.no_show.
  */
+export { reassignBooking } from "./reassign";
 export { cancelBooking } from "./cancel";
 export { createHold } from "./create-hold";
 export { completeBooking, confirmBooking, expireHolds, markNoShow } from "./lifecycle";

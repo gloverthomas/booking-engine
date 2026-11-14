@@ -14,6 +14,11 @@ describe("business settings", () => {
       cancelWindowHours: 24,
       holdMinutes: 10,
       chooseStaff: false,
+      waitlistEnabled: true,
+      waitlistAutoOffer: true,
+      waitlistOfferWindowMin: 20,
+      waitlistMaxOffersPerSlot: 5,
+      staffAlertsEnabled: true,
     });
   });
 

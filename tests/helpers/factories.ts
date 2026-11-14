@@ -8,7 +8,10 @@ export async function seedBasics(db: Db) {
     .insert(location)
     .values({ businessId: biz.id, name: "Northside" })
     .returning();
-  const [stylist] = await db.insert(staff).values({ businessId: biz.id, name: "Ryan" }).returning();
+  const [stylist] = await db
+    .insert(staff)
+    .values({ businessId: biz.id, name: "Ryan", role: "owner" })
+    .returning();
   const [cl] = await db
     .insert(client)
     .values({ businessId: biz.id, firstName: "Sam", lastName: "Client", email: "sam@example.com" })
@@ -30,6 +33,19 @@ export async function createService(
       priceCents: 9500,
       ...overrides,
     })
+    .returning();
+  return row;
+}
+
+/** Another staff member at the same business. */
+export async function createStaff(
+  db: Db,
+  businessId: string,
+  overrides: Partial<typeof staff.$inferInsert> = {},
+) {
+  const [row] = await db
+    .insert(staff)
+    .values({ businessId, name: "Alex", role: "stylist", email: "alex@example.com", ...overrides })
     .returning();
   return row;
 }

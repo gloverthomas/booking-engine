@@ -43,6 +43,8 @@ export interface CreateHoldInput {
   bookedForOther?: boolean;
   comments?: string;
   intakeAnswers?: Record<string, string>;
+  /** True when the client chose this stylist rather than "first available". */
+  staffRequested?: boolean;
   /** The policy version the client ticked. Must equal the current settings.policyVersion. */
   policyVersion: string;
   source?: string;
@@ -88,6 +90,16 @@ export interface RescheduleInput {
   now?: Date;
 }
 
+export interface ReassignInput {
+  bookingId: string;
+  newStaffId: string;
+  /** Tell the client their stylist changed. */
+  notifyClient?: boolean;
+  /** "owner:<userId>" etc. for the audit trail. */
+  actor?: string;
+  now?: Date;
+}
+
 export interface PaymentIntentResult {
   paymentId: string;
   clientSecret: string;
@@ -103,4 +115,50 @@ export interface PublicBookingSummary {
   services: Array<{ name: string; priceCents: number }>;
   totalCents: number;
   depositCents: number;
+}
+
+/* ---------------------------------- Staff ---------------------------------- */
+
+export type StaffRole = "owner" | "manager" | "stylist" | "reception";
+
+/* --------------------------------- Waitlist -------------------------------- */
+
+export interface WaitlistJoinInput {
+  client: ClientInput;
+  locationId: string;
+  /** Omit for any stylist who offers all the services. */
+  staffId?: string;
+  serviceIds: string[];
+  /** Local dates (YYYY-MM-DD), inclusive. */
+  earliestDate: string;
+  latestDate: string;
+  /** 0 = Sunday ... 6 = Saturday. Omit for any day. */
+  weekdays?: number[];
+  /** Business-local minutes the appointment must start within. Omit for any time. */
+  fromMinute?: number;
+  toMinute?: number;
+  notes?: string;
+  now?: Date;
+}
+
+export interface WaitlistOfferInput {
+  entryId: string;
+  staffId: string;
+  during: TimeSlot;
+  /** "auto" or "owner:<userId>". */
+  offeredBy: string;
+  now?: Date;
+}
+
+export interface WaitlistOfferSummary {
+  offerId: string;
+  entryId: string;
+  start: Date;
+  end: Date;
+  locationName: string;
+  services: Array<{ name: string; priceCents: number }>;
+  depositCents: number;
+  expiresAt: Date;
+  /** sent = can still be claimed. */
+  status: "sent" | "claimed" | "expired" | "slot_taken" | "cancelled";
 }

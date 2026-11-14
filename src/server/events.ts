@@ -23,10 +23,14 @@ export type DomainEvent =
   | { type: "booking.no_show"; bookingId: string; feeCents: number }
   | { type: "payment.succeeded"; paymentId: string }
   | { type: "payment.refunded"; paymentId: string }
-  | { type: "client.updated"; clientId: string };
+  | { type: "client.updated"; clientId: string }
+  | { type: "waitlist.entry_joined"; entryId: string }
+  | { type: "waitlist.offer_created"; offerId: string }
+  | { type: "waitlist.offer_claimed"; offerId: string; bookingId: string };
 
 /** Queues that receive every event. Each consumer handler ignores the types it does not handle. */
 export const EVENT_CONSUMERS = [
+  "consumer.waitlist",
   "consumer.payments",
   "consumer.notifications",
   "consumer.google",

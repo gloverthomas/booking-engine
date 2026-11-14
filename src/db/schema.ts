@@ -69,6 +69,31 @@ export const integrationStatus = pgEnum("integration_status", [
 
 export const timeBlockSource = pgEnum("time_block_source", ["manual", "google"]);
 
+export const staffRole = pgEnum("staff_role", ["owner", "manager", "stylist", "reception"]);
+export const rosterExceptionKind = pgEnum("roster_exception_kind", ["off", "custom"]);
+export const timeEntrySource = pgEnum("time_entry_source", ["clock", "manual"]);
+export const targetMetric = pgEnum("target_metric", [
+  "revenue",
+  "bookings",
+  "rebook_rate",
+  "utilisation",
+]);
+export const targetPeriod = pgEnum("target_period", ["week", "month"]);
+export const waitlistStatus = pgEnum("waitlist_status", [
+  "waiting",
+  "offered",
+  "booked",
+  "expired",
+  "cancelled",
+]);
+export const waitlistOfferStatus = pgEnum("waitlist_offer_status", [
+  "sent",
+  "claimed",
+  "expired",
+  "slot_taken",
+  "cancelled",
+]);
+
 /* -------------------------------------------------------------------------- */
 /* Business, places, people                                                   */
 /* -------------------------------------------------------------------------- */
@@ -107,8 +132,17 @@ export const staff = pgTable("staff", {
   businessId: uuid("business_id").references(() => business.id),
   name: text("name").notNull(),
   email: text("email"),
-  /** Seniority tier for future per-level pricing (see priceFor in the plan). */
+  /** Seniority tier for per-level pricing (see service_level_price and priceFor). */
   level: integer("level").notNull().default(0),
+  /** What this person may do in the admin. See src/server/auth/permissions.ts. */
+  role: staffRole("role").notNull().default("stylist"),
+  /** Better Auth user id, linked the first time they sign in with `email`. */
+  userId: text("user_id").unique(),
+  phone: text("phone"),
+  /** Calendar colour, a CSS hex like #d33a1e. Null = derived from sort order. */
+  colour: text("colour"),
+  /** SHA-256 of a short PIN used to lock a shared device. Never the PIN itself. */
+  pinHash: text("pin_hash"),
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -165,6 +199,20 @@ export const serviceStaff = pgTable(
   (t) => [primaryKey({ columns: [t.serviceId, t.staffId] })],
 );
 
+/** Seniority pricing: price/duration for staff of a given level. Resolution: service_staff, then this, then the service. */
+export const serviceLevelPrice = pgTable(
+  "service_level_price",
+  {
+    serviceId: uuid("service_id")
+      .notNull()
+      .references(() => service.id, { onDelete: "cascade" }),
+    level: integer("level").notNull(),
+    priceCents: integer("price_cents"),
+    durationMin: integer("duration_min"),
+  },
+  (t) => [primaryKey({ columns: [t.serviceId, t.level] })],
+);
+
 /** Recurring weekly hours at a location. Minutes are local to the business timezone. */
 export const availabilityRule = pgTable(
   "availability_rule",
@@ -192,6 +240,84 @@ export const availabilityRule = pgTable(
     ),
     index("availability_rule_staff_idx").on(t.staffId),
   ],
+);
+
+/**
+ * A day-specific change to the weekly roster. `off` removes that day's availability (for one location
+ * or, when locationId is null, everywhere). `custom` replaces that day's rules at the location with
+ * [startMinute, endMinute) in business-local minutes.
+ */
+export const rosterException = pgTable(
+  "roster_exception",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    staffId: uuid("staff_id")
+      .notNull()
+      .references(() => staff.id, { onDelete: "cascade" }),
+    locationId: uuid("location_id").references(() => location.id, { onDelete: "cascade" }),
+    /** Local calendar date, YYYY-MM-DD. */
+    date: text("date").notNull(),
+    kind: rosterExceptionKind("kind").notNull(),
+    startMinute: integer("start_minute"),
+    endMinute: integer("end_minute"),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      "roster_exception_custom_hours",
+      sql`${t.kind} = 'off' OR (${t.startMinute} IS NOT NULL AND ${t.endMinute} IS NOT NULL AND ${t.startMinute} >= 0 AND ${t.endMinute} <= 1440 AND ${t.startMinute} < ${t.endMinute})`,
+    ),
+    index("roster_exception_staff_date_idx").on(t.staffId, t.date),
+  ],
+);
+
+/** A clock-in / clock-out pair (or a manual entry). One open entry per person at a time. */
+export const timeEntry = pgTable(
+  "time_entry",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    staffId: uuid("staff_id")
+      .notNull()
+      .references(() => staff.id, { onDelete: "cascade" }),
+    locationId: uuid("location_id").references(() => location.id),
+    clockIn: timestamp("clock_in", { withTimezone: true }).notNull(),
+    clockOut: timestamp("clock_out", { withTimezone: true }),
+    breakMinutes: integer("break_minutes").notNull().default(0),
+    source: timeEntrySource("source").notNull().default("clock"),
+    note: text("note"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    /** "owner:<userId>" or the manager's id. */
+    approvedBy: text("approved_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check("time_entry_order", sql`${t.clockOut} IS NULL OR ${t.clockOut} > ${t.clockIn}`),
+    uniqueIndex("time_entry_one_open_uidx")
+      .on(t.staffId)
+      .where(sql`${t.clockOut} IS NULL`),
+    index("time_entry_staff_in_idx").on(t.staffId, t.clockIn),
+  ],
+);
+
+/**
+ * A goal for a person (or the whole business when staffId is null).
+ * targetValue units: revenue = cents, bookings = count, rebook_rate and utilisation = basis points (10000 = 100%).
+ */
+export const staffTarget = pgTable(
+  "staff_target",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    staffId: uuid("staff_id").references(() => staff.id, { onDelete: "cascade" }),
+    metric: targetMetric("metric").notNull(),
+    period: targetPeriod("period").notNull(),
+    targetValue: integer("target_value").notNull(),
+    /** Local dates, YYYY-MM-DD. validTo null = open ended. */
+    validFrom: text("valid_from").notNull(),
+    validTo: text("valid_to"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check("staff_target_positive", sql`${t.targetValue} > 0`)],
 );
 
 /** Unavailable time: leave, appointments elsewhere, and busy time imported from Google. */
@@ -267,6 +393,8 @@ export const booking = pgTable(
     depositCents: integer("deposit_cents").notNull().default(0),
     holdExpiresAt: timestamp("hold_expires_at", { withTimezone: true }),
     bookedForOther: boolean("booked_for_other").notNull().default(false),
+    /** True when the client chose this stylist (vs "first available"). Never auto-reassign a requested booking. */
+    staffRequested: boolean("staff_requested").notNull().default(false),
     comments: text("comments"),
     /** Answers to per-service intake questions: { [questionId]: answer } */
     intakeAnswers: jsonb("intake_answers")
@@ -373,6 +501,8 @@ export const integrationAccount = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     businessId: uuid("business_id").references(() => business.id),
+    /** Set for a person's own Google calendar. Null for business-wide accounts (Xero, Stripe, a shared calendar). */
+    staffId: uuid("staff_id").references(() => staff.id, { onDelete: "cascade" }),
     provider: integrationProvider("provider").notNull(),
     /** Xero tenant id, Google calendar id, Stripe account id... */
     externalAccountId: text("external_account_id"),
@@ -388,7 +518,14 @@ export const integrationAccount = pgTable(
       .default(sql`'{}'::jsonb`),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("integration_account_provider_uidx").on(t.businessId, t.provider)],
+  (t) => [
+    uniqueIndex("integration_account_business_provider_uidx")
+      .on(t.businessId, t.provider)
+      .where(sql`${t.staffId} IS NULL`),
+    uniqueIndex("integration_account_staff_provider_uidx")
+      .on(t.staffId, t.provider)
+      .where(sql`${t.staffId} IS NOT NULL`),
+  ],
 );
 
 export const auditLog = pgTable(
@@ -433,4 +570,74 @@ export const webhookEvent = pgTable(
     processedAt: timestamp("processed_at", { withTimezone: true }),
   },
   (t) => [uniqueIndex("webhook_event_uidx").on(t.provider, t.eventId)],
+);
+
+/* -------------------------------------------------------------------------- */
+/* Waitlist                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/** Someone who wants a slot if one opens up. Archives itself (status expired) when expiresAt passes. */
+export const waitlistEntry = pgTable(
+  "waitlist_entry",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => client.id),
+    locationId: uuid("location_id")
+      .notNull()
+      .references(() => location.id),
+    /** Null = any stylist who offers all the services. */
+    staffId: uuid("staff_id").references(() => staff.id),
+    serviceIds: jsonb("service_ids").$type<string[]>().notNull(),
+    /** Local date window, YYYY-MM-DD, inclusive. */
+    earliestDate: text("earliest_date").notNull(),
+    latestDate: text("latest_date").notNull(),
+    /** 0 = Sunday ... 6 = Saturday. Null = any day. */
+    weekdays: jsonb("weekdays").$type<number[]>(),
+    /** Business-local minutes the appointment must start within. Null = any time. */
+    fromMinute: integer("from_minute"),
+    toMinute: integer("to_minute"),
+    status: waitlistStatus("status").notNull().default("waiting"),
+    bookedBookingId: uuid("booked_booking_id"),
+    notes: text("notes"),
+    /** End of latestDate in the business timezone, as an instant. A job expires entries past this. */
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("waitlist_entry_status_idx").on(t.status),
+    index("waitlist_entry_client_idx").on(t.clientId),
+  ],
+);
+
+/** A freed slot offered to one waitlist entry. The first person to claim and pay gets it. */
+export const waitlistOffer = pgTable(
+  "waitlist_offer",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    entryId: uuid("entry_id")
+      .notNull()
+      .references(() => waitlistEntry.id, { onDelete: "cascade" }),
+    staffId: uuid("staff_id")
+      .notNull()
+      .references(() => staff.id),
+    locationId: uuid("location_id")
+      .notNull()
+      .references(() => location.id),
+    during: tstzrange("during").notNull(),
+    status: waitlistOfferStatus("status").notNull().default("sent"),
+    /** "auto" or "owner:<userId>". */
+    offeredBy: text("offered_by").notNull().default("auto"),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    claimedBookingId: uuid("claimed_booking_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check("waitlist_offer_during_not_empty", sql`NOT isempty(${t.during})`),
+    index("waitlist_offer_entry_idx").on(t.entryId),
+    index("waitlist_offer_status_idx").on(t.status),
+  ],
 );

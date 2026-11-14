@@ -19,4 +19,12 @@ describe("priceFor", () => {
       durationMin: 60,
     });
   });
+
+  test("precedence is the stylist's override, then their level's price, then the service", () => {
+    const staffOverride = { priceCents: 11000, durationMin: null };
+    const level = { priceCents: 10000, durationMin: 50 };
+    expect(priceFor(base, staffOverride, level)).toEqual({ priceCents: 11000, durationMin: 50 });
+    expect(priceFor(base, null, level)).toEqual({ priceCents: 10000, durationMin: 50 });
+    expect(priceFor(base, undefined, { priceCents: null, durationMin: null })).toEqual(base);
+  });
 });

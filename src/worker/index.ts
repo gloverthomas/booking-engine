@@ -12,6 +12,7 @@ import { register as registerNotifications } from "./handlers/notifications";
 import { register as registerGoogle } from "./handlers/google";
 import { register as registerXero } from "./handlers/xero";
 import { register as registerPayments } from "./handlers/payments";
+import { register as registerWaitlist } from "./handlers/waitlist";
 
 const HANDLERS: RegisterHandlers[] = [
   registerRelay,
@@ -19,6 +20,7 @@ const HANDLERS: RegisterHandlers[] = [
   registerNotifications,
   registerGoogle,
   registerXero,
+  registerWaitlist,
 ];
 
 async function main(): Promise<void> {

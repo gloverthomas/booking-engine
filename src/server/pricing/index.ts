@@ -4,13 +4,20 @@ export interface ServicePricing {
   durationMin: number;
 }
 
+type Override = { priceCents: number | null; durationMin: number | null } | null | undefined;
+
+/**
+ * The one place price and duration are resolved. Precedence, field by field:
+ * the stylist's own override (service_staff), then their level's price (service_level_price), then the service.
+ */
 export function priceFor(
   service: { priceCents: number; durationMin: number },
-  override?: { priceCents: number | null; durationMin: number | null } | null,
+  staffOverride?: Override,
+  levelOverride?: Override,
 ): ServicePricing {
   return {
-    priceCents: override?.priceCents ?? service.priceCents,
-    durationMin: override?.durationMin ?? service.durationMin,
+    priceCents: staffOverride?.priceCents ?? levelOverride?.priceCents ?? service.priceCents,
+    durationMin: staffOverride?.durationMin ?? levelOverride?.durationMin ?? service.durationMin,
   };
 }
 

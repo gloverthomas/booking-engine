@@ -27,6 +27,16 @@ export const businessSettingsSchema = z.object({
   policyText: z.string().default(""),
   /** Show the "choose a stylist" step. Off while there is one stylist. */
   chooseStaff: z.boolean().default(false),
+  /** Let clients join a waitlist when there are no times. */
+  waitlistEnabled: z.boolean().default(true),
+  /** Text matching waitlist people automatically when a slot frees up. Off = the owner picks. */
+  waitlistAutoOffer: z.boolean().default(true),
+  /** How long an offer's claim link works. */
+  waitlistOfferWindowMin: z.number().int().min(5).max(240).default(20),
+  /** At most this many people are offered the same slot at once; first to pay wins. */
+  waitlistMaxOffersPerSlot: z.number().int().min(1).max(20).default(5),
+  /** Email (and SMS when a phone is set) the stylist when a booking is made, moved or cancelled. */
+  staffAlertsEnabled: z.boolean().default(true),
 });
 
 export type BusinessSettings = z.infer<typeof businessSettingsSchema>;

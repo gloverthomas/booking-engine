@@ -54,6 +54,8 @@ export async function saveConnection<T>(db: Db, input: ConnectInput<T>): Promise
     .values(values)
     .onConflictDoUpdate({
       target: [integrationAccount.businessId, integrationAccount.provider],
+      // The unique index is partial: business-wide accounts have no staff member.
+      targetWhere: sql`${integrationAccount.staffId} IS NULL`,
       set: values,
     })
     .returning();
