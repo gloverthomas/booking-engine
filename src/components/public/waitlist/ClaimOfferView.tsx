@@ -61,7 +61,7 @@ export function ClaimOfferView({ token }: ClaimOfferViewProps) {
           clock: makeHoldClock(offer.expiresAt, offer.serverNow, Date.now()),
         });
       } else {
-        setView({ status: "gone", reason: offer.status === "sent" ? "expired" : offer.status });
+        setView({ status: "gone", reason: offer.status });
       }
     });
     return () => {
