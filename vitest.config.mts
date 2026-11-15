@@ -30,7 +30,6 @@ export default defineConfig({
         "src/server/waitlist/index.ts",
         "src/server/booking/reassign.ts",
         "src/server/notifications/waitlist-notifications.ts",
-        "src/server/auth/access.ts",
         "src/worker/handlers/waitlist.ts",
       ],
       thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },

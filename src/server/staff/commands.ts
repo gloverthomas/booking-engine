@@ -102,10 +102,16 @@ function nullIfBlank(value: string): string | null {
   return value === "" ? null : value;
 }
 
+/** Commands are robust on their own: emails compare lower-case even if the caller skipped the schema. */
+function normalised(input: StaffInput): StaffInput {
+  return { ...input, email: input.email.trim().toLowerCase() };
+}
+
 export async function createStaffMember(
   ctx: StaffCommandContext,
-  input: StaffInput,
+  rawInput: StaffInput,
 ): Promise<{ id: string }> {
+  const input = normalised(rawInput);
   assertMayTouchOwners(ctx, null, input.role);
   return ctx.db.transaction(async (tx) => {
     await lockStaffWrites(tx);
@@ -138,8 +144,9 @@ export async function createStaffMember(
 export async function updateStaffMember(
   ctx: StaffCommandContext,
   id: string,
-  input: StaffInput,
+  rawInput: StaffInput,
 ): Promise<void> {
+  const input = normalised(rawInput);
   await ctx.db.transaction(async (tx) => {
     await lockStaffWrites(tx);
     const target = await loadStaff(tx, id);
