@@ -2,6 +2,7 @@ export * from "./range";
 export * from "./money";
 export * from "./csv";
 export * from "./context";
+export * from "./scope";
 export * from "./revenue";
 export * from "./bookings";
 export * from "./cancellations";

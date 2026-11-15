@@ -1,5 +1,5 @@
 import { and, gte, inArray, lt, eq } from "drizzle-orm";
-import { booking, bookingService, location, payment } from "@/db/schema";
+import { booking, bookingService, location, payment, staff } from "@/db/schema";
 import type { Db } from "../db-types";
 import { allocateProRata } from "./money";
 import {
@@ -10,7 +10,7 @@ import {
   type ResolvedRange,
 } from "./range";
 
-export type RevenueGroupBy = "none" | "location" | "service";
+export type RevenueGroupBy = "none" | "location" | "service" | "staff";
 
 export interface RevenueQuery {
   timezone: string;
@@ -19,6 +19,11 @@ export interface RevenueQuery {
   to: string;
   granularity: Granularity;
   groupBy: RevenueGroupBy;
+  /**
+   * Only payments on this stylist's bookings (payments not tied to a booking are left out). Role scoping
+   * sets this on the server for people who may only see their own numbers.
+   */
+  staffId?: string;
 }
 
 /** Money columns shared by every revenue row. All integer cents (AUD). */
@@ -129,9 +134,11 @@ interface PaymentRow {
   bookingStatus: string | null;
   locationId: string | null;
   locationName: string | null;
+  staffId: string | null;
+  staffName: string | null;
 }
 
-async function loadPayments(db: Db, range: ResolvedRange): Promise<PaymentRow[]> {
+async function loadPayments(db: Db, range: ResolvedRange, staffId?: string): Promise<PaymentRow[]> {
   return db
     .select({
       id: payment.id,
@@ -143,12 +150,16 @@ async function loadPayments(db: Db, range: ResolvedRange): Promise<PaymentRow[]>
       bookingStatus: booking.status,
       locationId: booking.locationId,
       locationName: location.name,
+      staffId: booking.staffId,
+      staffName: staff.name,
     })
     .from(payment)
     .leftJoin(booking, eq(booking.id, payment.bookingId))
     .leftJoin(location, eq(location.id, booking.locationId))
+    .leftJoin(staff, eq(staff.id, booking.staffId))
     .where(
       and(
+        staffId ? eq(booking.staffId, staffId) : undefined,
         gte(payment.createdAt, range.start),
         lt(payment.createdAt, range.endExclusive),
         inArray(payment.status, [...COUNTED_STATUSES]),
@@ -210,6 +221,15 @@ function slicesFor(
       },
     ];
   }
+  if (groupBy === "staff") {
+    return [
+      {
+        groupId: row.staffId,
+        groupName: row.staffName ?? "Not assigned",
+        amountCents: row.amountCents,
+      },
+    ];
+  }
   const serviceLines = row.bookingId ? lines.get(row.bookingId) : undefined;
   if (!serviceLines || serviceLines.length === 0) {
     return [{ groupId: null, groupName: "No service", amountCents: row.amountCents }];
@@ -232,7 +252,7 @@ function slicesFor(
  */
 export async function getRevenueReport(db: Db, query: RevenueQuery): Promise<RevenueReport> {
   const range = resolveRange(query.timezone, query.from, query.to);
-  const payments = await loadPayments(db, range);
+  const payments = await loadPayments(db, range, query.staffId);
   const bookingIds = [...new Set(payments.flatMap((p) => (p.bookingId ? [p.bookingId] : [])))];
   const lines =
     query.groupBy === "service"

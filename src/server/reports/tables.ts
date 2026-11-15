@@ -6,6 +6,7 @@ import { getCancellationsReport } from "./cancellations";
 import { getClientsReport } from "./clients";
 import { toCsv, type CsvColumnType } from "./csv";
 import { getOutstandingReport } from "./outstanding";
+import { requireAllScope, scopedStaffId, type ReportScope } from "./scope";
 import { bucketLabel, defaultRange, type Granularity } from "./range";
 import { getRevenueReport } from "./revenue";
 
@@ -17,6 +18,8 @@ export const REPORT_TABLE_IDS = [
   "busiest-weekdays",
   "busiest-hours",
   "cancellations",
+  "utilisation-by-staff",
+  "cancellations-by-staff",
   "top-clients",
   "lapsed-clients",
   "outstanding",
@@ -30,7 +33,9 @@ export const reportParamsSchema = z.object({
   from: localDate.optional(),
   to: localDate.optional(),
   granularity: z.enum(["day", "week", "month"]).default("week"),
-  groupBy: z.enum(["none", "location", "service"]).default("none"),
+  groupBy: z.enum(["none", "location", "service", "staff"]).default("none"),
+  /** Narrow to one stylist. Ignored for people who may only see themselves (they are always scoped). */
+  staff: z.string().uuid().optional(),
 });
 export type ReportParams = z.infer<typeof reportParamsSchema>;
 
@@ -50,6 +55,8 @@ export interface TableContext {
   now: Date;
   /** Raw query string values (page searchParams or URLSearchParams entries). Validated here. */
   query: RawQuery;
+  /** Who is asking. Defaults to everyone (the pre-roles behaviour). Own-only scopes force the stylist. */
+  scope?: ReportScope;
 }
 
 interface BuildContext {
@@ -58,6 +65,9 @@ interface BuildContext {
   params: ReportParams;
   from: string;
   to: string;
+  scope: ReportScope;
+  /** The stylist every query is limited to (forced for own-only scopes), or undefined for everyone. */
+  staffId: string | undefined;
 }
 
 /** Fill in the default range (month to date) and validate the rest. Throws ZodError on bad input. */
@@ -74,6 +84,7 @@ export function resolveParams(
     to: flat.to || undefined,
     granularity: flat.granularity || undefined,
     groupBy: flat.groupBy || undefined,
+    staff: flat.staff || undefined,
   });
   const fallback = defaultRange(now, timezone);
   return { ...parsed, from: parsed.from ?? fallback.from, to: parsed.to ?? fallback.to };
@@ -96,15 +107,17 @@ const STATUS_LABEL: Record<string, string> = {
 type Builder = (db: Db, ctx: BuildContext) => Promise<ReportTable>;
 
 const builders: Record<ReportTableId, Builder> = {
-  async revenue(db, { timezone, params, from, to }) {
+  async revenue(db, { timezone, params, from, to, staffId }) {
     const r = await getRevenueReport(db, {
       timezone,
       from,
       to,
       granularity: params.granularity,
       groupBy: params.groupBy,
+      staffId,
     });
-    const groupHeader = params.groupBy === "service" ? "Service" : "Location";
+    const groupHeader =
+      params.groupBy === "service" ? "Service" : params.groupBy === "staff" ? "Stylist" : "Location";
     const columns: ReportTable["columns"] = [
       { key: "period", header: periodHeader(params.granularity) },
       ...(params.groupBy === "none" ? [] : [{ key: "group", header: groupHeader } as const]),
@@ -129,8 +142,8 @@ const builders: Record<ReportTableId, Builder> = {
     };
   },
 
-  async "bookings-by-day"(db, { timezone, from, to }) {
-    const r = await getBookingsReport(db, { timezone, from, to });
+  async "bookings-by-day"(db, { timezone, from, to, staffId }) {
+    const r = await getBookingsReport(db, { timezone, from, to, staffId });
     return {
       id: "bookings-by-day",
       title: "Bookings by day",
@@ -144,8 +157,8 @@ const builders: Record<ReportTableId, Builder> = {
     };
   },
 
-  async utilisation(db, { timezone, from, to }) {
-    const r = await getBookingsReport(db, { timezone, from, to });
+  async utilisation(db, { timezone, from, to, staffId }) {
+    const r = await getBookingsReport(db, { timezone, from, to, staffId });
     return {
       id: "utilisation",
       title: "Utilisation by location",
@@ -161,8 +174,25 @@ const builders: Record<ReportTableId, Builder> = {
     };
   },
 
-  async "busiest-weekdays"(db, { timezone, from, to }) {
-    const r = await getBookingsReport(db, { timezone, from, to });
+  async "utilisation-by-staff"(db, { timezone, from, to, staffId }) {
+    const r = await getBookingsReport(db, { timezone, from, to, staffId, groupBy: "staff" });
+    return {
+      id: "utilisation-by-staff",
+      title: "Utilisation by stylist",
+      filename: "utilisation-by-stylist",
+      columns: [
+        { key: "staffName", header: "Stylist" },
+        { key: "bookings", header: "Bookings", type: "int" },
+        { key: "bookedHours", header: "Booked hours", type: "decimal" },
+        { key: "availableHours", header: "Rostered hours", type: "decimal" },
+        { key: "utilisationPct", header: "Utilisation %", type: "percent" },
+      ],
+      rows: r.byStaff,
+    };
+  },
+
+  async "busiest-weekdays"(db, { timezone, from, to, staffId }) {
+    const r = await getBookingsReport(db, { timezone, from, to, staffId });
     return {
       id: "busiest-weekdays",
       title: "Busiest days of the week",
@@ -176,8 +206,8 @@ const builders: Record<ReportTableId, Builder> = {
     };
   },
 
-  async "busiest-hours"(db, { timezone, from, to }) {
-    const r = await getBookingsReport(db, { timezone, from, to });
+  async "busiest-hours"(db, { timezone, from, to, staffId }) {
+    const r = await getBookingsReport(db, { timezone, from, to, staffId });
     return {
       id: "busiest-hours",
       title: "Busiest start times",
@@ -190,8 +220,8 @@ const builders: Record<ReportTableId, Builder> = {
     };
   },
 
-  async cancellations(db, { timezone, from, to }) {
-    const r = await getCancellationsReport(db, { timezone, from, to });
+  async cancellations(db, { timezone, from, to, staffId }) {
+    const r = await getCancellationsReport(db, { timezone, from, to, staffId });
     return {
       id: "cancellations",
       title: "Cancellations, late cancels and no-shows",
@@ -200,6 +230,7 @@ const builders: Record<ReportTableId, Builder> = {
         { key: "start", header: "Appointment" },
         { key: "statusLabel", header: "Outcome" },
         { key: "clientName", header: "Client" },
+        { key: "staffName", header: "Stylist" },
         { key: "locationName", header: "Location" },
         { key: "totalCents", header: "Booking total", type: "money" },
         { key: "depositPaidCents", header: "Deposit paid", type: "money" },
@@ -212,6 +243,26 @@ const builders: Record<ReportTableId, Builder> = {
         start: localDateTime(row.start, timezone),
         statusLabel: STATUS_LABEL[row.status] ?? row.status,
       })),
+    };
+  },
+
+  async "cancellations-by-staff"(db, { timezone, from, to, staffId }) {
+    const r = await getCancellationsReport(db, { timezone, from, to, staffId, groupBy: "staff" });
+    return {
+      id: "cancellations-by-staff",
+      title: "Cancellations by stylist",
+      filename: "cancellations-by-stylist",
+      columns: [
+        { key: "staffName", header: "Stylist" },
+        { key: "scheduledCount", header: "Appointments", type: "int" },
+        { key: "cancelled", header: "Cancelled in time", type: "int" },
+        { key: "lateCancelled", header: "Late cancels", type: "int" },
+        { key: "noShows", header: "No-shows", type: "int" },
+        { key: "cancellationRatePct", header: "Rate %", type: "percent" },
+        { key: "keptCents", header: "Kept", type: "money" },
+        { key: "refundedCents", header: "Refunded", type: "money" },
+      ],
+      rows: r.byStaff,
     };
   },
 
@@ -278,6 +329,13 @@ const builders: Record<ReportTableId, Builder> = {
   },
 };
 
+/** Tables about every client or every balance: not split by stylist, so only for roles that see everyone. */
+const BUSINESS_WIDE: ReadonlySet<ReportTableId> = new Set(["top-clients", "lapsed-clients", "outstanding"]);
+
+export function isBusinessWideTable(id: ReportTableId): boolean {
+  return BUSINESS_WIDE.has(id);
+}
+
 function periodHeader(granularity: Granularity): string {
   return granularity === "day" ? "Day" : granularity === "week" ? "Week" : "Month";
 }
@@ -293,12 +351,18 @@ export async function buildReportTable(
   ctx: TableContext,
 ): Promise<ReportTable> {
   const params = resolveParams(ctx.query, ctx.timezone, ctx.now);
+  const scope: ReportScope = ctx.scope ?? { kind: "all" };
+  // Whole-business tables are never built for someone who may only see their own numbers.
+  if (BUSINESS_WIDE.has(id)) requireAllScope(scope);
   return builders[id](db, {
     timezone: ctx.timezone,
     now: ctx.now,
     params,
     from: params.from,
     to: params.to,
+    scope,
+    // An own-only scope overrides whatever `staff` the URL asked for.
+    staffId: scopedStaffId(scope, params.staff),
   });
 }
 
