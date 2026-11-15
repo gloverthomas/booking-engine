@@ -30,9 +30,17 @@ import {
   useToast,
 } from "@/components/admin/calendar/ui-shim";
 import { useClientSearch } from "@/components/admin/calendar/useClientSearch";
-import type { ClientProfile as ClientProfileData, ClientSummary } from "@/server/admin/types";
+import type {
+  ClientProfile as ClientProfileData,
+  ClientSummary,
+  ViewerCaps,
+} from "@/server/admin/types";
 
-export function ClientProfile(props: { profile: ClientProfileData; timezone: string }) {
+export function ClientProfile(props: {
+  profile: ClientProfileData;
+  timezone: string;
+  caps: ViewerCaps;
+}) {
   return (
     <ToastProvider>
       <ProfileBody {...props} />
@@ -40,7 +48,15 @@ export function ClientProfile(props: { profile: ClientProfileData; timezone: str
   );
 }
 
-function ProfileBody({ profile, timezone }: { profile: ClientProfileData; timezone: string }) {
+function ProfileBody({
+  profile,
+  timezone,
+  caps,
+}: {
+  profile: ClientProfileData;
+  timezone: string;
+  caps: ViewerCaps;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [notes, setNotes] = useState(profile.notes ?? "");
@@ -134,67 +150,80 @@ function ProfileBody({ profile, timezone }: { profile: ClientProfileData; timezo
         </dl>
       </section>
 
-      <Card className="flex flex-col gap-3">
-        <Field
-          label="Notes"
-          hint="Cut formula, preferences, anything worth remembering. Only you can see this."
-        >
-          {(id) => (
-            <Textarea
-              id={id}
-              value={notes}
-              maxLength={4000}
-              rows={5}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          )}
-        </Field>
-        <Button
-          loading={savingNotes}
-          disabled={notes.trim() === savedNotes.trim()}
-          onClick={() => void saveNotes()}
-        >
-          Save notes
-        </Button>
-      </Card>
+      {!caps.editClients ? (
+        <Card className="flex flex-col gap-1">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-500">Notes</h2>
+          <p className="whitespace-pre-wrap text-sm text-stone-700">
+            {profile.notes ?? "No notes."}
+          </p>
+        </Card>
+      ) : null}
 
-      <Card className="flex flex-col">
-        <Switch
-          checked={isVip}
-          label="VIP"
-          description="Can book VIP-only services."
-          onChange={(next) =>
-            void toggle(
-              next,
-              setIsVip,
-              isVip,
-              () => setClientVipAction({ clientId: profile.id, isVip: next }),
-              "VIP status not changed",
-            )
-          }
-        />
-        <Switch
-          checked={blocked}
-          label="Blocked"
-          description="Cannot book online. You can still book them in yourself."
-          onChange={(next) =>
-            void toggle(
-              next,
-              setBlocked,
-              blocked,
-              () => setClientBlockedAction({ clientId: profile.id, blocked: next }),
-              "Blocked status not changed",
-            )
-          }
-        />
-      </Card>
+      {caps.editClients ? (
+        <Card className="flex flex-col gap-3">
+          <Field
+            label="Notes"
+            hint="Cut formula, preferences, anything worth remembering. Only the team can see this."
+          >
+            {(id) => (
+              <Textarea
+                id={id}
+                value={notes}
+                maxLength={4000}
+                rows={5}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            )}
+          </Field>
+          <Button
+            loading={savingNotes}
+            disabled={notes.trim() === savedNotes.trim()}
+            onClick={() => void saveNotes()}
+          >
+            Save notes
+          </Button>
+        </Card>
+      ) : null}
+
+      {caps.editClients ? (
+        <Card className="flex flex-col">
+          <Switch
+            checked={isVip}
+            label="VIP"
+            description="Can book VIP-only services."
+            onChange={(next) =>
+              void toggle(
+                next,
+                setIsVip,
+                isVip,
+                () => setClientVipAction({ clientId: profile.id, isVip: next }),
+                "VIP status not changed",
+              )
+            }
+          />
+          <Switch
+            checked={blocked}
+            label="Blocked"
+            description="Cannot book online. You can still book them in yourself."
+            onChange={(next) =>
+              void toggle(
+                next,
+                setBlocked,
+                blocked,
+                () => setClientBlockedAction({ clientId: profile.id, blocked: next }),
+                "Blocked status not changed",
+              )
+            }
+          />
+        </Card>
+      ) : null}
 
       <section className="flex flex-col gap-2" aria-labelledby="history-heading">
         <h2
           id="history-heading"
           className="text-sm font-semibold uppercase tracking-wide text-stone-500"
         >
-          History
+          {caps.seesAll ? "History" : "Your bookings with this client"}
         </h2>
         {profile.history.length === 0 ? (
           <p className="rounded-xl border border-dashed border-stone-300 p-6 text-center text-sm text-stone-600">
@@ -226,23 +255,25 @@ function ProfileBody({ profile, timezone }: { profile: ClientProfileData; timezo
         )}
       </section>
 
-      <section
-        className="flex flex-col gap-2 border-t border-stone-200 pt-4"
-        aria-labelledby="merge-heading"
-      >
-        <h2
-          id="merge-heading"
-          className="text-sm font-semibold uppercase tracking-wide text-stone-500"
+      {caps.mergeClients ? (
+        <section
+          className="flex flex-col gap-2 border-t border-stone-200 pt-4"
+          aria-labelledby="merge-heading"
         >
-          Duplicate record?
-        </h2>
-        <p className="text-sm text-stone-600">
-          If this person is in your list twice, merge the other record into this one.
-        </p>
-        <Button variant="secondary" onClick={() => setMergeOpen(true)}>
-          Merge a duplicate into {profile.firstName}
-        </Button>
-      </section>
+          <h2
+            id="merge-heading"
+            className="text-sm font-semibold uppercase tracking-wide text-stone-500"
+          >
+            Duplicate record?
+          </h2>
+          <p className="text-sm text-stone-600">
+            If this person is in your list twice, merge the other record into this one.
+          </p>
+          <Button variant="secondary" onClick={() => setMergeOpen(true)}>
+            Merge a duplicate into {profile.firstName}
+          </Button>
+        </section>
+      ) : null}
 
       <BookingSheet
         bookingId={openBooking}

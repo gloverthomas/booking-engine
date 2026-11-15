@@ -3,6 +3,26 @@
  * so they cross the server/client boundary and JSON route handlers unchanged.
  */
 
+import type { StaffRole } from "../contracts";
+
+/** What the signed-in person may do. Computed on the server (see access.ts) and used only to hide controls. */
+export interface ViewerCaps {
+  role: StaffRole;
+  staffId: string | null;
+  /** Sees every stylist's calendar and bookings rather than only their own. */
+  seesAll: boolean;
+  createBookings: boolean;
+  editBookings: boolean;
+  cancelBookings: boolean;
+  checkout: boolean;
+  /** Change which stylist a booking is with. */
+  reassign: boolean;
+  refund: boolean;
+  viewClients: boolean;
+  editClients: boolean;
+  mergeClients: boolean;
+}
+
 export type BookingStatus =
   | "pending_payment"
   | "confirmed"
@@ -50,7 +70,9 @@ export interface CalendarResources {
   timezone: string;
   slotStepMin: number;
   locations: Array<{ id: string; name: string }>;
-  staff: Array<{ id: string; name: string }>;
+  /** Active stylists the viewer may see (only themselves for a stylist), each with a calendar colour. */
+  staff: Array<{ id: string; name: string; colour: string }>;
+  viewer: ViewerCaps;
   services: Array<{
     id: string;
     name: string;
@@ -85,7 +107,7 @@ export interface BookingDetail {
   cancelReason: string | null;
   cancelledAt: string | null;
   location: { id: string; name: string };
-  staff: { id: string; name: string };
+  staff: { id: string; name: string; colour: string };
   client: {
     id: string;
     name: string;
@@ -120,14 +142,18 @@ export interface BookingDetail {
     data: Record<string, unknown>;
     at: string;
   }>;
-  /** What the owner may do right now. */
+  /** What the viewer may do right now (their role and the booking's state). */
   allowed: {
     move: boolean;
     cancel: boolean;
     noShow: boolean;
     checkout: boolean;
     resend: boolean;
+    reassign: boolean;
+    refund: boolean;
   };
+  /** Other active stylists the booking could be handed to. Empty unless `allowed.reassign`. */
+  reassignOptions: Array<{ id: string; name: string }>;
 }
 
 /* Lists ------------------------------------------------------------------- */
@@ -144,6 +170,9 @@ export interface BookingListRow {
   locationName: string;
   services: string[];
   totalCents: number;
+  staffId: string;
+  staffName: string;
+  staffColour: string;
 }
 
 export interface ClientSummary {

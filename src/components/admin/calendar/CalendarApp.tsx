@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { deleteBlockAction, rescheduleBookingAction } from "@/app/(admin)/calendar/actions";
 import type { CalendarResources } from "@/server/admin/types";
 import { callAction } from "./api";
@@ -9,6 +9,8 @@ import { BookingSheet } from "./BookingSheet";
 import type { CalendarHandle, CalendarViewName, RescheduleRequest } from "./CalendarView";
 import { CreateSheet, type CreateDefaults } from "./CreateSheet";
 import { formatDateTime } from "./format";
+import { StaffChips } from "./StaffChips";
+import { defaultCreateStaff, defaultSelection, selectStaff } from "./staff-filter";
 import {
   Button,
   Chips,
@@ -69,7 +71,7 @@ function CalendarScreen({ resources }: { resources: CalendarResources }) {
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [locationId, setLocationId] = useState("");
-  const [staffId, setStaffId] = useState("");
+  const [pickedStaff, setPickedStaff] = useState<string[] | null>(null);
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [block, setBlock] = useState<BlockInfo | null>(null);
   const [createDefaults, setCreateDefaults] = useState<CreateDefaults | null>(null);
@@ -81,6 +83,12 @@ function CalendarScreen({ resources }: { resources: CalendarResources }) {
   const narrow = useSyncExternalStore(subscribeNarrow, isNarrow, () => false);
   const defaultView: CalendarViewName = narrow ? "timeGridThreeDay" : "timeGridWeek";
   const activeView = view ?? defaultView;
+
+  // Several stylists: a phone shows one column at a time (a switcher); wide screens can compare columns.
+  const staffIds = useMemo(() => resources.staff.map((s) => s.id), [resources.staff]);
+  const selectedStaff =
+    pickedStaff ??
+    defaultSelection({ narrow, ownStaffId: resources.viewer.staffId, allIds: staffIds });
 
   const refetch = useCallback(() => handle.current?.refetch(), []);
 
@@ -101,9 +109,14 @@ function CalendarScreen({ resources }: { resources: CalendarResources }) {
         start,
         end,
         locationId: locationId || undefined,
-        staffId: staffId || undefined,
+        staffId: defaultCreateStaff({
+          seesAll: resources.viewer.seesAll,
+          ownStaffId: resources.viewer.staffId,
+          selected: selectedStaff,
+          allIds: staffIds,
+        }),
       }),
-    [locationId, staffId],
+    [locationId, resources.viewer, selectedStaff, staffIds],
   );
 
   const openCreateNow = useCallback(() => {
@@ -216,29 +229,25 @@ function CalendarScreen({ resources }: { resources: CalendarResources }) {
             ))}
           </Select>
         ) : null}
-        {resources.staff.length > 1 ? (
-          <Select
-            aria-label="Stylist"
-            value={staffId}
-            onChange={(e) => setStaffId(e.target.value)}
-            className="w-auto min-w-0 flex-1 md:flex-none"
-          >
-            <option value="">All stylists</option>
-            {resources.staff.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </Select>
-        ) : null}
       </div>
+
+      {resources.staff.length > 1 ? (
+        <StaffChips
+          staff={resources.staff}
+          selected={selectedStaff}
+          onSelect={(id) =>
+            setPickedStaff(selectStaff(selectedStaff, id, staffIds, narrow ? "single" : "multi"))
+          }
+          onSelectAll={() => setPickedStaff([])}
+        />
+      ) : null}
 
       <div className="min-h-0 flex-1 rounded-xl border border-stone-200 bg-white p-1">
         <CalendarView
           handleRef={handle}
           resources={resources}
           locationId={locationId}
-          staffId={staffId}
+          staffIds={selectedStaff}
           initialView={defaultView}
           onTitle={handleTitle}
           onLoading={setLoading}

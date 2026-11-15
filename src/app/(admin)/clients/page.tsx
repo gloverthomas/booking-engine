@@ -3,10 +3,9 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { z } from "zod";
-import { getDb } from "@/db/client";
 import { Badge, Button, Input, Skeleton } from "@/components/admin/calendar/ui-shim";
 import { searchClients } from "@/server/admin/clients";
-import { requireOwner } from "@/server/auth";
+import { getReadContext } from "@/server/admin/session";
 
 export const metadata: Metadata = { title: "Clients" };
 
@@ -38,10 +37,10 @@ async function ClientsContent({
   searchParams: PageProps<"/clients">["searchParams"];
 }) {
   await connection();
-  await requireOwner();
+  const { db, access } = await getReadContext("clients.view");
   const raw = await searchParams;
   const q = querySchema.parse(typeof raw.q === "string" ? raw.q : "");
-  const clients = await searchClients(getDb(), { q, limit: LIMIT });
+  const clients = await searchClients(db, access, { q, limit: LIMIT });
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-3 md:p-6">

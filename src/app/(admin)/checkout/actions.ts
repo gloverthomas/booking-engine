@@ -17,6 +17,8 @@ export interface CheckoutSummary {
 }
 
 export async function checkoutAction(raw: unknown): Promise<ActionResult<CheckoutSummary>> {
-  const ctx = await getCommandContext();
-  return runAction("check out", async () => checkoutBooking(ctx, checkoutSchema.parse(raw)));
+  return runAction("check out", async () => {
+    const ctx = await getCommandContext("checkout");
+    return checkoutBooking(ctx, checkoutSchema.parse(raw));
+  });
 }

@@ -1,3 +1,4 @@
+import type { AccessContext } from "@/server/admin/access";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { createTestDb } from "../helpers/test-db";
 import { createService, seedBasics } from "../helpers/factories";
@@ -12,6 +13,8 @@ import {
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getBookingDetail, getCheckoutView, listBookings } from "@/server/admin/bookings";
+
+const OWNER: AccessContext = { role: "owner", staffId: null };
 
 type TestDb = Awaited<ReturnType<typeof createTestDb>>;
 let t: TestDb;
@@ -68,7 +71,7 @@ afterEach(async () => {
 
 describe("getBookingDetail", () => {
   test("returns null for an unknown booking", async () => {
-    expect(await getBookingDetail(t.db, crypto.randomUUID(), NOW)).toBeNull();
+    expect(await getBookingDetail(t.db, crypto.randomUUID(), OWNER, NOW)).toBeNull();
   });
 
   test("assembles client, services, payments, messages and audit trail", async () => {
@@ -99,7 +102,7 @@ describe("getBookingDetail", () => {
       entityId: b.id,
     });
 
-    const detail = await getBookingDetail(t.db, b.id, NOW);
+    const detail = await getBookingDetail(t.db, b.id, OWNER, NOW);
 
     expect(detail).toMatchObject({
       id: b.id,
@@ -131,7 +134,7 @@ describe("getBookingDetail", () => {
     await addPayment(b.id, "refund", 10000);
     await addPayment(b.id, "balance", 5000, { status: "pending" });
 
-    const detail = await getBookingDetail(t.db, b.id, NOW);
+    const detail = await getBookingDetail(t.db, b.id, OWNER, NOW);
     expect(detail?.paidCents).toBe(0);
   });
 
@@ -139,7 +142,7 @@ describe("getBookingDetail", () => {
     const b = await addBooking("confirmed", "2026-11-16T03:00:00Z", "2026-11-16T04:00:00Z");
     await addPayment(b.id, "deposit", 10000, { status: "partially_refunded" });
     await addPayment(b.id, "refund", 2500);
-    const detail = await getBookingDetail(t.db, b.id, NOW);
+    const detail = await getBookingDetail(t.db, b.id, OWNER, NOW);
     expect(detail?.paidCents).toBe(7500);
     expect(detail?.balanceDueCents).toBe(12500);
   });
@@ -148,7 +151,7 @@ describe("getBookingDetail", () => {
     const b = await addBooking("completed", "2026-11-10T03:00:00Z", "2026-11-10T04:00:00Z");
     await addPayment(b.id, "deposit", 10000);
     await addPayment(b.id, "balance", 9000, { method: "cash" });
-    const detail = await getBookingDetail(t.db, b.id, NOW);
+    const detail = await getBookingDetail(t.db, b.id, OWNER, NOW);
     expect(detail?.paidCents).toBe(19000);
     expect(detail?.balanceDueCents).toBe(0);
   });
@@ -163,27 +166,33 @@ describe("getBookingDetail", () => {
       "2026-11-17T04:00:00Z",
     );
 
-    expect((await getBookingDetail(t.db, future.id, NOW))?.allowed).toEqual({
+    expect((await getBookingDetail(t.db, future.id, OWNER, NOW))?.allowed).toEqual({
       move: true,
       cancel: true,
       noShow: false,
       checkout: true,
       resend: true,
+      reassign: true,
+      refund: true,
     });
-    expect((await getBookingDetail(t.db, past.id, NOW))?.allowed.noShow).toBe(true);
-    expect((await getBookingDetail(t.db, done.id, NOW))?.allowed).toEqual({
+    expect((await getBookingDetail(t.db, past.id, OWNER, NOW))?.allowed.noShow).toBe(true);
+    expect((await getBookingDetail(t.db, done.id, OWNER, NOW))?.allowed).toEqual({
       move: false,
       cancel: false,
       noShow: false,
       checkout: false,
       resend: false,
+      reassign: false,
+      refund: true,
     });
-    expect((await getBookingDetail(t.db, pending.id, NOW))?.allowed).toEqual({
+    expect((await getBookingDetail(t.db, pending.id, OWNER, NOW))?.allowed).toEqual({
       move: true,
       cancel: true,
       noShow: false,
       checkout: false,
       resend: false,
+      reassign: false,
+      refund: true,
     });
   });
 });
@@ -208,7 +217,7 @@ describe("listBookings", () => {
     await addBooking("expired", "2026-11-19T03:00:00Z", "2026-11-19T04:00:00Z");
 
     const ids = async (filter: "upcoming" | "past" | "cancelled") =>
-      (await listBookings(t.db, { filter, now: NOW })).map((r) => r.id);
+      (await listBookings(t.db, OWNER, { filter, now: NOW })).map((r) => r.id);
 
     expect(await ids("upcoming")).toEqual([sooner.id, soon.id]);
     expect(await ids("past")).toEqual([awaiting.id, ns.id, old.id]);
@@ -232,7 +241,7 @@ describe("listBookings", () => {
     });
 
     const search = async (q: string) =>
-      (await listBookings(t.db, { filter: "upcoming", q, now: NOW })).map((r) => r.id);
+      (await listBookings(t.db, OWNER, { filter: "upcoming", q, now: NOW })).map((r) => r.id);
     expect(await search("sam")).toEqual([a.id]);
     expect(await search("Jo Smith")).toEqual([b.id]);
     expect(await search("jo@example")).toEqual([b.id]);
@@ -248,7 +257,7 @@ describe("listBookings", () => {
       durationMin: 45,
       priceCents: 100,
     });
-    const [row] = await listBookings(t.db, { filter: "upcoming", now: NOW });
+    const [row] = await listBookings(t.db, OWNER, { filter: "upcoming", now: NOW });
     expect(row).toMatchObject({
       id: b.id,
       clientName: "Sam Client",
@@ -261,14 +270,14 @@ describe("listBookings", () => {
   test("respects the limit", async () => {
     await addBooking("confirmed", "2026-11-16T03:00:00Z", "2026-11-16T04:00:00Z");
     await addBooking("confirmed", "2026-11-17T03:00:00Z", "2026-11-17T04:00:00Z");
-    const rows = await listBookings(t.db, { filter: "upcoming", now: NOW, limit: 1 });
+    const rows = await listBookings(t.db, OWNER, { filter: "upcoming", now: NOW, limit: 1 });
     expect(rows).toHaveLength(1);
   });
 });
 
 describe("getCheckoutView", () => {
   test("returns null for an unknown booking", async () => {
-    expect(await getCheckoutView(t.db, crypto.randomUUID())).toBeNull();
+    expect(await getCheckoutView(t.db, crypto.randomUUID(), OWNER)).toBeNull();
   });
 
   test("exposes totals, cash discount setting and services", async () => {
@@ -285,7 +294,7 @@ describe("getCheckoutView", () => {
     });
     await addPayment(b.id, "deposit", 10000);
 
-    const view = await getCheckoutView(t.db, b.id);
+    const view = await getCheckoutView(t.db, b.id, OWNER);
     expect(view).toMatchObject({
       bookingId: b.id,
       status: "confirmed",
@@ -305,7 +314,7 @@ describe("getCheckoutView", () => {
     await addPayment(b.id, "deposit", 10000);
     await addPayment(b.id, "balance", 9500, { method: "cash" });
 
-    const view = await getCheckoutView(t.db, b.id);
+    const view = await getCheckoutView(t.db, b.id, OWNER);
     expect(view?.balanceAlreadyRecorded).toBe(true);
     expect(view?.receipt?.paidCents).toBe(19500);
     expect(view?.receipt?.payments.map((p) => p.kind).sort()).toEqual(["balance", "deposit"]);

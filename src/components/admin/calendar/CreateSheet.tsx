@@ -106,7 +106,8 @@ function BookingForm({
   const [locationId, setLocationId] = useState(
     defaults.locationId ?? resources.locations[0]?.id ?? "",
   );
-  const [staffId, setStaffId] = useState(defaults.staffId ?? resources.staff[0]?.id ?? "");
+  // "" means first available. A stylist's own column is fixed on the server whatever is sent.
+  const [staffId, setStaffId] = useState(defaults.staffId ?? "");
   const [serviceIds, setServiceIds] = useState<string[]>([]);
   const [start, setStart] = useState(() => toWallClockInput(defaults.start, timezone));
   const [notify, setNotify] = useState(true);
@@ -143,7 +144,7 @@ function BookingForm({
     const result = await callAction(() =>
       createBookingAction({
         locationId,
-        staffId: staffId || undefined,
+        staffId: resources.viewer.seesAll ? staffId || undefined : undefined,
         serviceIds: chosenIds,
         start: startDate.toISOString(),
         client:
@@ -189,10 +190,18 @@ function BookingForm({
             )}
           </Field>
         ) : null}
-        {resources.staff.length > 1 ? (
-          <Field label="Stylist">
+        {resources.viewer.seesAll && resources.staff.length > 1 ? (
+          <Field
+            label="Stylist"
+            hint={
+              staffId
+                ? "Booked as a request for this person."
+                : "The first stylist who is free takes it."
+            }
+          >
             {(id) => (
               <Select id={id} value={staffId} onChange={(e) => setStaffId(e.target.value)}>
+                <option value="">First available</option>
                 {resources.staff.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -299,7 +308,8 @@ function BlockForm({
 }) {
   const toast = useToast();
   const { timezone } = resources;
-  const [staffId, setStaffId] = useState(defaults.staffId ?? resources.staff[0]?.id ?? "");
+  const ownId = resources.staff.find((s) => s.id === resources.viewer.staffId)?.id;
+  const [staffId, setStaffId] = useState(defaults.staffId || ownId || resources.staff[0]?.id || "");
   const [start, setStart] = useState(() => toWallClockInput(defaults.start, timezone));
   const [end, setEnd] = useState(() => toWallClockInput(defaults.end, timezone));
   const [reason, setReason] = useState("");
@@ -349,7 +359,7 @@ function BlockForm({
         void submit();
       }}
     >
-      {resources.staff.length > 1 ? (
+      {resources.viewer.seesAll && resources.staff.length > 1 ? (
         <Field label="Stylist">
           {(id) => (
             <Select id={id} value={staffId} onChange={(e) => setStaffId(e.target.value)}>

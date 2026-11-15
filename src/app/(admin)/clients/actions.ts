@@ -8,30 +8,33 @@ import { blockedSchema, mergeSchema, notesSchema, vipSchema } from "@/server/adm
 import { getCommandContext } from "@/server/admin/session";
 
 export async function updateClientNotesAction(raw: unknown): Promise<ActionResult> {
-  const ctx = await getCommandContext();
   return runAction("save notes", async () => {
+    const ctx = await getCommandContext("clients.edit");
     const { clientId, notes } = notesSchema.parse(raw);
-    await updateClientNotes(ctx.db, clientId, notes, ctx.actor);
+    await updateClientNotes(ctx.db, clientId, notes, ctx.actor, ctx.access);
   });
 }
 
 export async function setClientBlockedAction(raw: unknown): Promise<ActionResult> {
-  const ctx = await getCommandContext();
   return runAction("update blocked status", async () => {
+    const ctx = await getCommandContext("clients.edit");
     const { clientId, blocked } = blockedSchema.parse(raw);
-    await setClientBlocked(ctx.db, clientId, blocked, ctx.actor);
+    await setClientBlocked(ctx.db, clientId, blocked, ctx.actor, ctx.access);
   });
 }
 
 export async function setClientVipAction(raw: unknown): Promise<ActionResult> {
-  const ctx = await getCommandContext();
   return runAction("update VIP status", async () => {
+    const ctx = await getCommandContext("clients.edit");
     const { clientId, isVip } = vipSchema.parse(raw);
-    await setClientVip(ctx.db, clientId, isVip, ctx.actor);
+    await setClientVip(ctx.db, clientId, isVip, ctx.actor, ctx.access);
   });
 }
 
 export async function mergeClientsAction(raw: unknown): Promise<ActionResult> {
-  const ctx = await getCommandContext();
-  return runAction("merge clients", async () => mergeClientRecords(ctx, mergeSchema.parse(raw)));
+  return runAction("merge clients", async () => {
+    // Manager and owner only: the command re-checks the role.
+    const ctx = await getCommandContext("clients.edit");
+    await mergeClientRecords(ctx, mergeSchema.parse(raw));
+  });
 }

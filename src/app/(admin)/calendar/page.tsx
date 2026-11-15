@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { getDb } from "@/db/client";
 import { CalendarApp } from "@/components/admin/calendar/CalendarApp";
 import { Skeleton } from "@/components/admin/calendar/ui-shim";
 import { listCalendarResources } from "@/server/admin/calendar";
-import { requireOwner } from "@/server/auth";
+import { getCalendarReadContext } from "@/server/admin/session";
 
 export const metadata: Metadata = { title: "Calendar" };
 
@@ -30,7 +29,7 @@ function CalendarFallback() {
 async function CalendarContent() {
   // Opt this render into request time so nothing touches the database during the build.
   await connection();
-  await requireOwner();
-  const resources = await listCalendarResources(getDb());
+  const { db, access } = await getCalendarReadContext();
+  const resources = await listCalendarResources(db, access);
   return <CalendarApp resources={resources} />;
 }

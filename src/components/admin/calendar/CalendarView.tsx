@@ -17,6 +17,7 @@ import type { CalendarEvent, CalendarResources } from "@/server/admin/types";
 import { getJson } from "./api";
 import { STATUS_LABEL } from "./format";
 import { toFullCalendarEvent } from "./fc-events";
+import { staffQuery } from "./staff-filter";
 import { fromWallClock, toWallClock } from "./wallclock";
 import "./calendar.css";
 
@@ -43,7 +44,8 @@ export interface RescheduleRequest {
 export interface CalendarViewProps {
   resources: CalendarResources;
   locationId: string;
-  staffId: string;
+  /** Stylists to show. Empty means everyone the viewer may see. */
+  staffIds: readonly string[];
   initialView: CalendarViewName;
   handleRef: Ref<CalendarHandle>;
   onTitle: (title: string, view: CalendarViewName) => void;
@@ -62,7 +64,7 @@ export default function CalendarView(props: CalendarViewProps) {
   const {
     resources,
     locationId,
-    staffId,
+    staffIds,
     initialView,
     handleRef,
     onTitle,
@@ -91,10 +93,12 @@ export default function CalendarView(props: CalendarViewProps) {
   );
 
   const locationIds = useMemo(() => resources.locations.map((l) => l.id), [resources.locations]);
-  const staffNames = useMemo(
-    () => new Map(resources.staff.map((s) => [s.id, s.name])),
+  const staffLookup = useMemo(
+    () => new Map(resources.staff.map((s) => [s.id, { name: s.name, colour: s.colour }])),
     [resources.staff],
   );
+  // A string key so a new array with the same people does not refetch.
+  const staffKey = staffQuery(staffIds) ?? "";
 
   const loadEvents = useCallback(
     (
@@ -107,11 +111,11 @@ export default function CalendarView(props: CalendarViewProps) {
         to: fromWallClock(info.end, timezone).toISOString(),
       });
       if (locationId) query.set("locationId", locationId);
-      if (staffId) query.set("staffId", staffId);
+      if (staffKey) query.set("staffIds", staffKey);
       getJson<{ events: CalendarEvent[] }>(`/calendar/events?${query.toString()}`)
         .then((body) =>
           success(
-            body.events.map((e) => toFullCalendarEvent(e, timezone, locationIds, staffNames)),
+            body.events.map((e) => toFullCalendarEvent(e, timezone, locationIds, staffLookup)),
           ),
         )
         .catch((error: unknown) => {
@@ -120,7 +124,7 @@ export default function CalendarView(props: CalendarViewProps) {
           failure(error instanceof Error ? error : new Error(message));
         });
     },
-    [timezone, locationId, staffId, locationIds, staffNames, onLoadError],
+    [timezone, locationId, staffKey, locationIds, staffLookup, onLoadError],
   );
 
   const openCreate = useCallback(
@@ -251,8 +255,9 @@ export default function CalendarView(props: CalendarViewProps) {
         longPressDelay={350}
         eventLongPressDelay={350}
         selectLongPressDelay={350}
-        editable
+        editable={resources.viewer.editBookings}
         eventDurationEditable={false}
+        slotEventOverlap={false}
         events={loadEvents}
         loading={onLoading}
         datesSet={handleDatesSet}

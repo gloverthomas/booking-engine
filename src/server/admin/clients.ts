@@ -2,9 +2,17 @@ import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { booking, client, location, payment } from "@/db/schema";
 import { recordAudit, type Actor } from "../audit";
 import type { Db } from "../db-types";
+import { assertCan, scopeCondition, type AccessContext } from "./access";
 import { toListRow } from "./bookings";
 import { AdminError } from "./errors";
-import { clientMatches, fullName, loadServiceNames, netPaidCents } from "./shared";
+import {
+  clientMatches,
+  fullName,
+  loadServiceNames,
+  loadStaffDirectory,
+  netPaidCents,
+  staffById,
+} from "./shared";
 import type { ClientProfile, ClientSummary } from "./types";
 
 const HISTORY_LIMIT = 50;
@@ -18,8 +26,10 @@ export interface SearchClientsOptions {
 /** Active (not merged away) clients, best match first by name. */
 export async function searchClients(
   db: Db,
+  access: AccessContext,
   options: SearchClientsOptions,
 ): Promise<ClientSummary[]> {
+  assertCan(access, "clients.view");
   const rows = await db
     .select()
     .from(client)
@@ -37,11 +47,17 @@ export async function searchClients(
   }));
 }
 
+/**
+ * The client's record is shared across the team, but their booking history and spend are limited to the
+ * viewer's own bookings when the viewer is a stylist.
+ */
 export async function getClientProfile(
   db: Db,
   clientId: string,
+  access: AccessContext,
   now: Date = new Date(),
 ): Promise<ClientProfile | null> {
+  assertCan(access, "clients.view");
   const [row] = await db.select().from(client).where(eq(client.id, clientId));
   if (!row) return null;
 
@@ -52,10 +68,11 @@ export async function getClientProfile(
       during: booking.during,
       totalCents: booking.totalCents,
       locationName: location.name,
+      staffId: booking.staffId,
     })
     .from(booking)
     .innerJoin(location, eq(location.id, booking.locationId))
-    .where(eq(booking.clientId, clientId));
+    .where(and(eq(booking.clientId, clientId), scopeCondition(booking.staffId, access)));
   bookings.sort((a, b) => b.during.start.getTime() - a.during.start.getTime());
 
   const payments =
@@ -73,10 +90,13 @@ export async function getClientProfile(
 
   const count = (status: string) => bookings.filter((b) => b.status === status).length;
   const recent = bookings.slice(0, HISTORY_LIMIT);
-  const names = await loadServiceNames(
-    db,
-    recent.map((b) => b.id),
-  );
+  const [names, directory] = await Promise.all([
+    loadServiceNames(
+      db,
+      recent.map((b) => b.id),
+    ),
+    loadStaffDirectory(db).then(staffById),
+  ]);
 
   return {
     id: row.id,
@@ -113,6 +133,7 @@ export async function getClientProfile(
           lastName: row.lastName,
         },
         names.get(b.id) ?? [],
+        directory,
       ),
     ),
   };
@@ -147,7 +168,9 @@ export async function updateClientNotes(
   clientId: string,
   notes: string,
   actor: Actor,
+  access: AccessContext,
 ): Promise<void> {
+  assertCan(access, "clients.edit");
   const trimmed = notes.trim();
   if (trimmed.length > MAX_NOTES_LENGTH) {
     throw new AdminError(`Notes are limited to ${MAX_NOTES_LENGTH} characters`);
@@ -165,7 +188,9 @@ export async function setClientBlocked(
   clientId: string,
   blocked: boolean,
   actor: Actor,
+  access: AccessContext,
 ): Promise<void> {
+  assertCan(access, "clients.edit");
   await updateClient(
     db,
     clientId,
@@ -183,7 +208,9 @@ export async function setClientVip(
   clientId: string,
   isVip: boolean,
   actor: Actor,
+  access: AccessContext,
 ): Promise<void> {
+  assertCan(access, "clients.edit");
   await updateClient(
     db,
     clientId,

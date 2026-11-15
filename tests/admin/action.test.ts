@@ -11,6 +11,13 @@ describe("userFacingMessage", () => {
     );
   });
 
+  test("a denied permission reads as a plain sentence", () => {
+    const denied = Object.assign(new Error("Not allowed: money.refund"), {
+      name: "AccessDeniedError",
+    });
+    expect(userFacingMessage(denied)).toBe("You do not have permission to do that.");
+  });
+
   test("uses the first validation issue for zod errors", () => {
     const result = z.object({ a: z.string().min(1, "A is required") }).safeParse({ a: "" });
     expect(userFacingMessage(result.error)).toBe("A is required");

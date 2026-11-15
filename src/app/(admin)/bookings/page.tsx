@@ -2,12 +2,11 @@ import type { Metadata } from "next";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { z } from "zod";
-import { getDb } from "@/db/client";
 import { BookingsList } from "@/components/admin/calendar/BookingsList";
 import { Skeleton } from "@/components/admin/calendar/ui-shim";
 import { listBookings } from "@/server/admin/bookings";
+import { getCalendarReadContext } from "@/server/admin/session";
 import { getBusinessContext } from "@/server/admin/shared";
-import { requireOwner } from "@/server/auth";
 
 export const metadata: Metadata = { title: "Bookings" };
 
@@ -43,16 +42,24 @@ async function BookingsContent({
   searchParams: PageProps<"/bookings">["searchParams"];
 }) {
   await connection();
-  await requireOwner();
+  const { db, access, caps } = await getCalendarReadContext();
   const raw = await searchParams;
   const { view, q } = searchSchema.parse({
     view: typeof raw.view === "string" ? raw.view : undefined,
     q: typeof raw.q === "string" ? raw.q : "",
   });
-  const db = getDb();
   const [rows, { timezone }] = await Promise.all([
-    listBookings(db, { filter: view, q, limit: LIMIT }),
+    listBookings(db, access, { filter: view, q, limit: LIMIT }),
     getBusinessContext(db),
   ]);
-  return <BookingsList rows={rows} filter={view} q={q} timezone={timezone} limit={LIMIT} />;
+  return (
+    <BookingsList
+      rows={rows}
+      filter={view}
+      q={q}
+      timezone={timezone}
+      limit={LIMIT}
+      showStylist={caps.seesAll}
+    />
+  );
 }

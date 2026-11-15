@@ -8,7 +8,7 @@ import {
   refundPaymentAction,
   resendConfirmationAction,
 } from "@/app/(admin)/bookings/actions";
-import { rescheduleBookingAction } from "@/app/(admin)/calendar/actions";
+import { reassignBookingAction, rescheduleBookingAction } from "@/app/(admin)/calendar/actions";
 import type { BookingDetail, BookingDetailPayment } from "@/server/admin/types";
 import { callAction, getJson } from "./api";
 import {
@@ -29,6 +29,7 @@ import {
   Dialog,
   Field,
   Input,
+  Select,
   Sheet,
   Skeleton,
   Switch,
@@ -45,7 +46,7 @@ export interface BookingSheetProps {
   onChanged: () => void;
 }
 
-type Modal = "move" | "cancel" | "noShow" | { refund: BookingDetailPayment } | null;
+type Modal = "move" | "cancel" | "noShow" | "reassign" | { refund: BookingDetailPayment } | null;
 
 const REFUNDABLE_METHODS = new Set(["stripe_online", "stripe_in_person"]);
 const REFUNDABLE_KINDS = new Set(["deposit", "balance", "no_show_fee", "late_cancel_fee"]);
@@ -137,6 +138,7 @@ export function BookingSheet({ bookingId, timezone, onClose, onChanged }: Bookin
             onMove={() => setModal("move")}
             onCancel={() => setModal("cancel")}
             onNoShow={() => setModal("noShow")}
+            onReassign={() => setModal("reassign")}
             onRefund={(payment) => setModal({ refund: payment })}
             onResend={() =>
               run(
@@ -168,6 +170,18 @@ export function BookingSheet({ bookingId, timezone, onClose, onChanged }: Bookin
               )
             }
           />
+          <Dialog open={modal === "reassign"} onClose={() => setModal(null)} title="Change stylist">
+            {modal === "reassign" ? (
+              <ReassignForm
+                detail={current}
+                onClose={() => setModal(null)}
+                onDone={() => {
+                  toast({ tone: "success", title: "Stylist changed" });
+                  afterChange();
+                }}
+              />
+            ) : null}
+          </Dialog>
           <CancelDialog
             open={modal === "cancel"}
             clientName={current.client.name}
@@ -265,6 +279,7 @@ function BookingBody({
   onMove,
   onCancel,
   onNoShow,
+  onReassign,
   onRefund,
   onResend,
 }: {
@@ -274,6 +289,7 @@ function BookingBody({
   onMove: () => void;
   onCancel: () => void;
   onNoShow: () => void;
+  onReassign: () => void;
   onRefund: (payment: BookingDetailPayment) => void;
   onResend: () => void;
 }) {
@@ -291,7 +307,14 @@ function BookingBody({
         <p className="text-xl font-semibold">{formatDateTime(detail.start, timezone)}</p>
         <p className="text-sm text-stone-600">
           {formatTimeRange(detail.start, detail.end, timezone)} · {detail.location.name} ·{" "}
-          {detail.staff.name}
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              aria-hidden
+              className="size-2.5 rounded-full"
+              style={{ backgroundColor: detail.staff.colour }}
+            />
+            {detail.staff.name}
+          </span>
         </p>
         {detail.cancelReason ? (
           <p className="text-sm text-stone-600">Reason: {detail.cancelReason}</p>
@@ -347,6 +370,11 @@ function BookingBody({
         <Button variant="secondary" disabled={!allowed.resend || busy} onClick={onResend}>
           Resend confirmation
         </Button>
+        {allowed.reassign ? (
+          <Button variant="secondary" className="col-span-2" disabled={busy} onClick={onReassign}>
+            Change stylist
+          </Button>
+        ) : null}
       </div>
 
       <Section title="Services">
@@ -396,6 +424,7 @@ function BookingBody({
           <ul className="flex flex-col divide-y divide-stone-100">
             {detail.payments.map((p) => {
               const canRefund =
+                allowed.refund &&
                 REFUNDABLE_KINDS.has(p.kind) &&
                 REFUNDABLE_METHODS.has(p.method) &&
                 (p.status === "succeeded" || p.status === "partially_refunded");
@@ -558,6 +587,79 @@ function MoveForm({
           onClick={() => parsed && onConfirm(parsed, notify)}
         >
           Move booking
+        </Button>
+      </div>
+    </>
+  );
+}
+
+function ReassignForm({
+  detail,
+  onClose,
+  onDone,
+}: {
+  detail: BookingDetail;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [newStaffId, setNewStaffId] = useState(detail.reassignOptions[0]?.id ?? "");
+  const [notify, setNotify] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    setBusy(true);
+    setError(null);
+    const result = await callAction(() =>
+      reassignBookingAction({ bookingId: detail.id, newStaffId, notifyClient: notify }),
+    );
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    onDone();
+  }
+
+  return (
+    <>
+      <p className="text-sm text-stone-700">
+        Move {detail.client.name} from {detail.staff.name} to another stylist at the same time. They
+        must be rostered, free and offer every service.
+      </p>
+      <Field label="New stylist">
+        {(id) => (
+          <Select id={id} value={newStaffId} onChange={(e) => setNewStaffId(e.target.value)}>
+            {detail.reassignOptions.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        )}
+      </Field>
+      <Switch
+        checked={notify}
+        onChange={setNotify}
+        label="Notify the client"
+        description="Tells them who their stylist is now."
+      />
+      {error ? (
+        <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-900">
+          {error}
+        </p>
+      ) : null}
+      <div className="flex gap-2">
+        <Button variant="secondary" className="flex-1" onClick={onClose}>
+          Back
+        </Button>
+        <Button
+          className="flex-1"
+          loading={busy}
+          disabled={newStaffId === ""}
+          onClick={() => void submit()}
+        >
+          Change stylist
         </Button>
       </div>
     </>

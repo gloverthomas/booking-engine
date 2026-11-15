@@ -1,20 +1,19 @@
 import type { NextRequest } from "next/server";
-import { getDb } from "@/db/client";
-import { getOwnerSession } from "@/server/auth";
+import { withReadContext, jsonBadRequest, jsonOk } from "@/server/admin/api";
 import { listCalendarEvents } from "@/server/admin/calendar";
 import { calendarQuerySchema, queryToObject } from "@/server/admin/schemas";
 
-/** GET /calendar/events?from=&to=&locationId=&staffId= : JSON events for the visible calendar range. */
+/**
+ * GET /calendar/events?from=&to=&locationId=&staffIds=a,b : JSON events for the visible calendar range.
+ * A stylist always gets only their own bookings and blocks, whatever `staffIds` says.
+ */
 export async function GET(request: NextRequest) {
   const query = queryToObject(request.nextUrl.searchParams);
-  if (!(await getOwnerSession())) {
-    return Response.json({ error: "Not signed in" }, { status: 401 });
-  }
-  const parsed = calendarQuerySchema.safeParse(query);
-  if (!parsed.success) {
-    return Response.json({ error: "Invalid calendar range" }, { status: 400 });
-  }
-  const { from, to, locationId, staffId } = parsed.data;
-  const events = await listCalendarEvents(getDb(), { from, to }, locationId, staffId);
-  return Response.json({ events }, { headers: { "Cache-Control": "private, no-store" } });
+  return withReadContext(["calendar.viewAll", "calendar.viewOwn"], async ({ db, access }) => {
+    const parsed = calendarQuerySchema.safeParse(query);
+    if (!parsed.success) return jsonBadRequest("Invalid calendar range");
+    const { from, to, locationId, staffIds } = parsed.data;
+    const events = await listCalendarEvents(db, { from, to }, access, { locationId, staffIds });
+    return jsonOk({ events });
+  });
 }

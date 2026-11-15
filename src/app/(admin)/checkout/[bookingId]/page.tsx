@@ -3,12 +3,11 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { z } from "zod";
-import { getDb } from "@/db/client";
 import { CheckoutScreen } from "@/components/admin/calendar/CheckoutScreen";
 import { Skeleton } from "@/components/admin/calendar/ui-shim";
 import { getCheckoutView } from "@/server/admin/bookings";
+import { getReadContext } from "@/server/admin/session";
 import { getBusinessContext } from "@/server/admin/shared";
-import { requireOwner } from "@/server/auth";
 
 export const metadata: Metadata = { title: "Check out" };
 
@@ -36,15 +35,15 @@ async function CheckoutContent({
   params: PageProps<"/checkout/[bookingId]">["params"];
 }) {
   await connection();
-  await requireOwner();
+  const { db, access } = await getReadContext("checkout");
   const { bookingId } = await params;
   if (!z.uuid().safeParse(bookingId).success) notFound();
 
-  const db = getDb();
   const [view, { timezone }] = await Promise.all([
-    getCheckoutView(db, bookingId),
+    getCheckoutView(db, bookingId, access),
     getBusinessContext(db),
   ]);
+  // A stylist opening a colleague's booking sees the same 404 as a booking that does not exist.
   if (!view) notFound();
   return <CheckoutScreen view={view} timezone={timezone} />;
 }

@@ -1,10 +1,25 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { booking, client, location, service, serviceLocation, staff, timeBlock } from "@/db/schema";
+import { booking, client, location, service, serviceLocation, timeBlock } from "@/db/schema";
 import type { TimeRange } from "@/db/tstzrange";
 import { recordAudit, type Actor } from "../audit";
 import type { Db } from "../db-types";
+import {
+  assertCanViewCalendar,
+  canAccessStaffMember,
+  effectiveStaffIds,
+  NOT_ALLOWED_MESSAGE,
+  viewerCaps,
+  type AccessContext,
+} from "./access";
 import { AdminError } from "./errors";
-import { fullName, getBusinessContext, loadServiceNames, lowerOf, overlaps } from "./shared";
+import {
+  fullName,
+  getBusinessContext,
+  loadServiceNames,
+  loadStaffDirectory,
+  lowerOf,
+  overlaps,
+} from "./shared";
 import type {
   BookingStatus,
   CalendarBlockEvent,
@@ -21,14 +36,28 @@ export interface CalendarRange {
   to: Date;
 }
 
-/** Bookings and time blocks overlapping [from, to). `locationId` only narrows bookings (blocks belong to a person). */
+export interface CalendarFilter {
+  /** Only narrows bookings: blocks belong to a person, not a place. */
+  locationId?: string;
+  /** Which stylists to show. Empty or missing means everyone the viewer may see. */
+  staffIds?: readonly string[];
+}
+
+/**
+ * Bookings and time blocks overlapping [from, to), limited to what `access` may see: a stylist only ever
+ * gets their own bookings and blocks, whatever `filter.staffIds` asks for.
+ */
 export async function listCalendarEvents(
   db: Db,
   range: CalendarRange,
-  locationId?: string,
-  staffId?: string,
+  access: AccessContext,
+  filter: CalendarFilter = {},
 ): Promise<CalendarEvent[]> {
+  assertCanViewCalendar(access);
   const window: TimeRange = { start: range.from, end: range.to };
+  const staffIds = effectiveStaffIds(access, filter.staffIds);
+  if (staffIds && staffIds.length === 0) return [];
+  const { locationId } = filter;
 
   const bookingRows = await db
     .select({
@@ -50,7 +79,7 @@ export async function listCalendarEvents(
         overlaps(booking.during, window),
         inArray(booking.status, VISIBLE_STATUSES),
         locationId ? eq(booking.locationId, locationId) : undefined,
-        staffId ? eq(booking.staffId, staffId) : undefined,
+        staffIds ? inArray(booking.staffId, staffIds) : undefined,
       ),
     )
     .orderBy(asc(lowerOf(booking.during)));
@@ -79,7 +108,10 @@ export async function listCalendarEvents(
     .select()
     .from(timeBlock)
     .where(
-      and(overlaps(timeBlock.during, window), staffId ? eq(timeBlock.staffId, staffId) : undefined),
+      and(
+        overlaps(timeBlock.during, window),
+        staffIds ? inArray(timeBlock.staffId, staffIds) : undefined,
+      ),
     )
     .orderBy(asc(lowerOf(timeBlock.during)));
 
@@ -95,8 +127,15 @@ export async function listCalendarEvents(
   return [...bookingEvents, ...blockEvents].sort((a, b) => a.start.localeCompare(b.start));
 }
 
-/** Everything the calendar UI needs to render filters and the create-booking form. */
-export async function listCalendarResources(db: Db): Promise<CalendarResources> {
+/**
+ * Everything the calendar UI needs to render filters and the create-booking form. A stylist's `staff`
+ * list is just themselves, so colleagues' names never reach their browser.
+ */
+export async function listCalendarResources(
+  db: Db,
+  access: AccessContext,
+): Promise<CalendarResources> {
+  assertCanViewCalendar(access);
   const { timezone, settings } = await getBusinessContext(db);
 
   const locations = await db
@@ -105,11 +144,11 @@ export async function listCalendarResources(db: Db): Promise<CalendarResources> 
     .where(eq(location.active, true))
     .orderBy(asc(location.sortOrder), asc(location.name));
 
-  const staffRows = await db
-    .select({ id: staff.id, name: staff.name })
-    .from(staff)
-    .where(eq(staff.active, true))
-    .orderBy(asc(staff.name));
+  const visible = effectiveStaffIds(access);
+  const staffRows = (await loadStaffDirectory(db))
+    .filter((s) => s.active && (!visible || visible.includes(s.id)))
+    .map(({ id, name, colour }) => ({ id, name, colour }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const serviceRows = await db
     .select({
@@ -133,6 +172,7 @@ export async function listCalendarResources(db: Db): Promise<CalendarResources> 
     slotStepMin: settings.slotStepMin,
     locations,
     staff: staffRows,
+    viewer: viewerCaps(access),
     services: serviceRows.map((s) => ({ ...s, locationIds: byService.get(s.id) ?? [] })),
   };
 }
@@ -148,7 +188,11 @@ export async function createManualBlock(
   db: Db,
   input: ManualBlockInput,
   actor: Actor,
+  access: AccessContext,
 ): Promise<{ blockId: string; overlappingBookings: number }> {
+  assertCanViewCalendar(access);
+  // A stylist can only block their own time.
+  if (!canAccessStaffMember(access, input.staffId)) throw new AdminError(NOT_ALLOWED_MESSAGE);
   if (input.end.getTime() <= input.start.getTime()) {
     throw new AdminError("The block must end after the start");
   }
@@ -188,10 +232,19 @@ export async function createManualBlock(
   });
 }
 
-export async function deleteBlock(db: Db, blockId: string, actor: Actor): Promise<void> {
+export async function deleteBlock(
+  db: Db,
+  blockId: string,
+  actor: Actor,
+  access: AccessContext,
+): Promise<void> {
+  assertCanViewCalendar(access);
   await db.transaction(async (tx) => {
     const [row] = await tx.select().from(timeBlock).where(eq(timeBlock.id, blockId));
-    if (!row) throw new AdminError("That blocked time was not found");
+    // Someone else's block is reported as missing, the same as a stylist's view of their booking.
+    if (!row || !canAccessStaffMember(access, row.staffId)) {
+      throw new AdminError("That blocked time was not found");
+    }
     if (row.source === "google") {
       throw new AdminError("This time comes from Google Calendar. Remove it there instead.");
     }
