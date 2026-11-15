@@ -1,4 +1,12 @@
-# Mobile app plan: the stylist's iPhone app
+# Mobile app: the stylist's iPhone app
+
+> **Status (built, not yet run on a device).** The app is in
+> [booking-engine-mobile](https://github.com/gloverthomas/booking-engine-mobile) (Expo SDK 58) and talks to
+> the staff API in `docs/API.md`. Built and tested: Google sign-in, Today, appointment detail (cancel,
+> no-show, mark paid), create appointment, clients, **Tap to Pay** (server side and app), **push
+> notifications**. Everything is covered by automated tests, but **none of it has been run on an iPhone**:
+> that needs the accounts in section 5. Not built: reschedule UI, roster, clock in and out, waitlist,
+> a generated OpenAPI document. The plan below is the original; section 7 records what was decided.
 
 Repo for the app: <https://github.com/gloverthomas/booking-engine-mobile> (empty today). This file is the plan;
 the backend work it needs lands in this repo.
@@ -108,10 +116,19 @@ unsupported on Tap to Pay readers, so no tip screen; very large contactless amou
 Phases 1 to 4 can overlap once phase 0 lands. Backend and app work can run as parallel lanes with a shared
 OpenAPI contract, the way round 2 was built.
 
-## 7. Decisions needed
+## 7. Decisions
 
-1. **Apple Developer account owner**: Ryan's entity, as with the others?
+Open (need an answer):
+
+1. **Apple Developer account owner**: Ryan's entity, as with the others? The bundle id
+   `world.hairmate.app` is a placeholder until it exists.
 2. **Shared phone or personal phones?** Decides whether the PIN lock moves into v1.
-3. **Who may take payments and issue refunds in the app**: owner only, or stylists for their own bookings?
-4. **Which push events are on by default** for stylists versus Ryan.
+
+Taken by default while building (change if wrong):
+
+3. **Who may take payments**: every role already has the `checkout` permission on the web, so the app
+   follows it. A stylist can only take payment on their own bookings. Refunds stay on the web.
+4. **Push**: a new client booking and a client cancellation go to the stylist **and** the owners. Not
+   notified yet: reschedules, waitlist claims, failed fee charges, a morning summary.
 5. **Customer app**: not planned. The web booking flow and manage links stay the customer experience.
+6. **No tipping**: Stripe lists it as unsupported on Tap to Pay readers.
