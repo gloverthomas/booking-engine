@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { DateTime } from "luxon";
 import { eq } from "drizzle-orm";
-import { booking, payment } from "@/db/schema";
+import { booking, bookingService, payment } from "@/db/schema";
 import type { AccessContext } from "@/server/admin/access";
 import type { StaffRole } from "@/server/contracts";
 
@@ -75,6 +75,7 @@ import { POST as reschedule } from "@/app/api/v1/bookings/[id]/reschedule/route"
 import { GET as searchClients } from "@/app/api/v1/clients/route";
 import { GET as getClient } from "@/app/api/v1/clients/[id]/route";
 import { GET as getMe } from "@/app/api/v1/me/route";
+import { GET as rescheduleSlotsRoute } from "@/app/api/v1/bookings/[id]/reschedule-slots/route";
 import { GET as getRoster } from "@/app/api/v1/roster/route";
 import { GET as getClock } from "@/app/api/v1/timesheets/clock/route";
 import { POST as clockIn } from "@/app/api/v1/timesheets/clock/in/route";
@@ -724,5 +725,105 @@ describe("clock in and out", () => {
     expect((await getClock(req("/x"))).status).toBe(401);
     expect((await clockIn(req("/x", {}))).status).toBe(401);
     expect((await clockOut(req("/x", {}))).status).toBe(401);
+  });
+});
+
+describe("reschedule slots", () => {
+  /** Ryan is rostered 9-5 daily; put his appointment at 10:00 three days from now, and a colleague-sized obstacle at 12:00. */
+  const at = (hour: number) =>
+    DateTime.now()
+      .setZone("Australia/Melbourne")
+      .plus({ days: 3 })
+      .set({ hour, minute: 0, second: 0, millisecond: 0 });
+  const day = () => at(10).toFormat("yyyy-MM-dd");
+  const url = (id: string, extra = "") => `/x?fromDate=${day()}&toDate=${day()}${extra}`;
+  let own: string;
+
+  async function bookWith(startHour: number, serviceId: string | null, staffId = w.staffId) {
+    const start = at(startHour);
+    const row = await addBooking(
+      w.db,
+      { ...w, staffId },
+      start.toJSDate(),
+      start.plus({ minutes: 45 }).toJSDate(),
+    );
+    await w.db.insert(bookingService).values({
+      bookingId: row.id,
+      serviceId,
+      name: "Maintenance Haircut",
+      durationMin: 45,
+      priceCents: 9500,
+    });
+    return row.id;
+  }
+
+  beforeEach(async () => {
+    own = await bookWith(10, w.haircutId);
+  });
+
+  test("offers times for the same stylist, counting the appointment's own slot as free", async () => {
+    as("owner", w.staffId);
+    await bookWith(12, w.haircutId); // someone else's booking in the way
+    const res = await rescheduleSlotsRoute(req(url(own)), ctx(own));
+    expect(res.status).toBe(200);
+    const { data } = await json(res);
+    expect(data.reason).toBeNull();
+    const starts = data.slots.map((s: { start: string }) => s.start);
+    expect(starts).toContain(at(10).toUTC().toISO({ suppressMilliseconds: false }));
+    expect(starts).toContain(at(10).plus({ minutes: 15 }).toUTC().toISO());
+    expect(starts).not.toContain(at(12).toUTC().toISO());
+    expect(data.slots.every((s: { staffId: string }) => s.staffId === w.staffId)).toBe(true);
+    expect(data.current.start).toBe(at(10).toUTC().toISO());
+  });
+
+  test("a stylist can move their own appointment but not a colleague's", async () => {
+    const theirs = await bookWith(14, w.haircutId, otherStaffId);
+    as("stylist", w.staffId);
+    expect((await rescheduleSlotsRoute(req(url(own)), ctx(own))).status).toBe(200);
+    expect((await rescheduleSlotsRoute(req(url(theirs)), ctx(theirs))).status).toBe(404);
+  });
+
+  test("a service that is not in the catalogue means no suggestions, with the reason", async () => {
+    as("owner", w.staffId);
+    const imported = await bookWith(15, null);
+    const { data } = await json(await rescheduleSlotsRoute(req(url(imported)), ctx(imported)));
+    expect(data.slots).toEqual([]);
+    expect(data.reason).toBe("services_not_in_catalogue");
+    expect(data.current.start).toBe(at(15).toUTC().toISO());
+  });
+
+  test("only a confirmed appointment can be moved", async () => {
+    as("owner", w.staffId);
+    await w.db.update(booking).set({ status: "completed" }).where(eq(booking.id, own));
+    const res = await rescheduleSlotsRoute(req(url(own)), ctx(own));
+    expect(res.status).toBe(400);
+    expect((await json(res)).error.message).toContain("confirmed");
+  });
+
+  test("bad or oversized date ranges are a 422; an unknown id is a 404; signed out is 401", async () => {
+    as("owner", w.staffId);
+    expect(
+      (await rescheduleSlotsRoute(req("/x?fromDate=soon&toDate=later"), ctx(own))).status,
+    ).toBe(422);
+    expect(
+      (await rescheduleSlotsRoute(req("/x?fromDate=2026-01-01&toDate=2026-06-01"), ctx(own)))
+        .status,
+    ).toBe(422);
+    expect(
+      (await rescheduleSlotsRoute(req(url(own)), ctx("00000000-0000-4000-8000-000000000000")))
+        .status,
+    ).toBe(404);
+    state.viewer = null;
+    expect((await rescheduleSlotsRoute(req(url(own)), ctx(own))).status).toBe(401);
+  });
+
+  test("the plain availability search still treats the appointment's slot as taken", async () => {
+    // The exclusion is specific to this endpoint: it must not leak into the normal search.
+    as("owner", w.staffId);
+    const q = `/api/v1/availability?locationId=${w.locationId}&serviceIds=${w.haircutId}&fromDate=${day()}&toDate=${day()}&staffId=${w.staffId}`;
+    const starts = (await json(await getAvailability(req(q)))).data.slots.map(
+      (s: { start: string }) => s.start,
+    );
+    expect(starts).not.toContain(at(10).toUTC().toISO());
   });
 });

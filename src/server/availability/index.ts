@@ -180,8 +180,12 @@ export function pickSlot(
  * With no staffId ("first available") each start time appears once, assigned to the free stylist with
  * the fewest bookings that day (ties: alphabetical), carrying that stylist's own price and length.
  */
-export async function getAvailableSlots(db: Db, query: AvailabilityQuery): Promise<PricedSlot[]> {
-  const search = await searchAvailability(db, query);
+export async function getAvailableSlots(
+  db: Db,
+  query: AvailabilityQuery,
+  options: { excludeBookingId?: string } = {},
+): Promise<PricedSlot[]> {
+  const search = await searchAvailability(db, query, options);
   const chosen = query.staffId ? search.slots : assignFirstAvailable(search);
   return chosen.map(({ staffId, start, end, totalCents, durationMin }) => ({
     staffId,
