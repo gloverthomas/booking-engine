@@ -39,10 +39,7 @@ export function SeniorityCard({
 }: SeniorityCardProps) {
   return (
     <Card aria-labelledby="svc-seniority">
-      <CardHeader
-        title={<span id="svc-seniority">Seniority pricing</span>}
-        eyebrow="By level"
-      />
+      <CardHeader title={<span id="svc-seniority">Seniority pricing</span>} eyebrow="By level" />
       <CardBody className="flex flex-col gap-4">
         {levels.length === 0 ? (
           <p className="text-sm text-ink-muted">

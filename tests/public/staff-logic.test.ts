@@ -10,7 +10,12 @@ import {
 } from "@/lib/public-api-staff";
 import type { CatalogService, CatalogStaff } from "@/lib/public-api-types";
 
-const svc = (id: string, priceCents: number, durationMin: number, depositPct = 50): CatalogService => ({
+const svc = (
+  id: string,
+  priceCents: number,
+  durationMin: number,
+  depositPct = 50,
+): CatalogService => ({
   id,
   name: `Service ${id}`,
   description: null,
@@ -27,7 +32,10 @@ const beard = svc("beard", 3000, 15);
 const alex: CatalogStaff = {
   id: "alex",
   name: "Alex",
-  offers: { cut: { priceCents: 9500, durationMin: 45 }, beard: { priceCents: 3000, durationMin: 15 } },
+  offers: {
+    cut: { priceCents: 9500, durationMin: 45 },
+    beard: { priceCents: 3000, durationMin: 15 },
+  },
 };
 const bea: CatalogStaff = {
   id: "bea",
@@ -37,7 +45,10 @@ const bea: CatalogStaff = {
 const cy: CatalogStaff = {
   id: "cy",
   name: "Cy",
-  offers: { cut: { priceCents: 9500, durationMin: 45 }, beard: { priceCents: 3000, durationMin: 15 } },
+  offers: {
+    cut: { priceCents: 9500, durationMin: 45 },
+    beard: { priceCents: 3000, durationMin: 15 },
+  },
 };
 
 describe("eligibleStaff", () => {

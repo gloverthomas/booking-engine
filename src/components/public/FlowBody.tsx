@@ -21,12 +21,17 @@ import {
 import {
   canLeaveStep,
   canVisit,
+  chosenStaffId,
   flowReducer,
   flowTotals,
   initialStateFor,
+  isEstimate,
   selectedLocation,
   selectedServices,
+  selectedStaffName,
+  staffStepOptions,
   stepsFor,
+  ticketLines,
   type FlowState,
   type StepId,
 } from "./flow/state";
@@ -37,6 +42,7 @@ import { LocationStep } from "./steps/LocationStep";
 import { PayStep } from "./steps/PayStep";
 import { ServicesStep } from "./steps/ServicesStep";
 import { SlotPicker } from "./steps/SlotPicker";
+import { StaffStep } from "./steps/StaffStep";
 import { HoldCountdown } from "./ui/HoldCountdown";
 import { ArrowLeft, ArrowRight } from "./ui/icons";
 import { Notice } from "./ui/Notice";
@@ -50,6 +56,7 @@ const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 const TITLES: Record<StepId, string> = {
   location: "Where to?",
   services: "Pick your services",
+  staff: "Choose your stylist",
   time: "Pick a time",
   details: "Your details",
   pay: "Pay your deposit",
@@ -58,6 +65,7 @@ const TITLES: Record<StepId, string> = {
 const LEDES: Partial<Record<StepId, string>> = {
   location: "Choose the salon you'd like to visit.",
   services: "Choose one or more. We'll add up the time and the price as you go.",
+  staff: "Anyone available gets you the earliest time. Or pick the person you'd like.",
   time: "Choose a day, then a time that suits.",
 };
 
@@ -99,6 +107,9 @@ export function FlowBody({ api, catalog, onReloadCatalog, embedded, rootRef }: F
   const services = selectedServices(state, catalog);
   const totals = flowTotals(state, catalog);
   const hasDeposit = steps.includes("pay");
+  const chosenStaff = chosenStaffId(state, catalog);
+  const staffName = selectedStaffName(state, catalog);
+  const estimate = isEstimate(state, catalog);
   const hold = state.hold;
   const timezone = catalog.business.timezone;
   const confirmedPath = (token: string) => `/book/confirmed/${encodeURIComponent(token)}`;
@@ -179,6 +190,9 @@ export function FlowBody({ api, catalog, onReloadCatalog, embedded, rootRef }: F
         locationId: state.locationId,
         serviceIds: state.serviceIds,
         slotStart: state.slot.start,
+        // Asked for by name, or pinned to the stylist the chosen time (and its price) is with.
+        staffId: chosenStaff ?? state.slot.staffId,
+        staffRequested: chosenStaff !== null,
         details: state.details,
         policyVersion: catalog.policy.version,
         turnstileToken: captchaToken ?? undefined,
@@ -222,13 +236,17 @@ export function FlowBody({ api, catalog, onReloadCatalog, embedded, rootRef }: F
     switch (state.step) {
       case "location":
       case "services":
+      case "staff":
       case "time": {
+        const upcoming = steps[stepIndex + 1];
         const nextLabel =
-          state.step === "location"
-            ? "Services"
-            : state.step === "services"
-              ? "Choose a time"
-              : "Your details";
+          upcoming === "details"
+            ? "Your details"
+            : upcoming === "staff"
+              ? "Choose a stylist"
+              : upcoming === "time"
+                ? "Choose a time"
+                : "Services";
         return (
           <button
             type="button"
@@ -311,15 +329,26 @@ export function FlowBody({ api, catalog, onReloadCatalog, embedded, rootRef }: F
                 services={location.services}
                 selectedIds={state.serviceIds}
                 onToggle={(serviceId) => dispatch({ type: "toggleService", serviceId })}
+                staff={location.staff}
+              />
+            ) : null}
+
+            {state.step === "staff" ? (
+              <StaffStep
+                options={staffStepOptions(state, catalog)}
+                selectedId={chosenStaff}
+                onSelect={(staffId) => dispatch({ type: "pickStaff", staffId })}
               />
             ) : null}
 
             {state.step === "time" && state.locationId ? (
               <SlotPicker
-                key={`${state.locationId}|${state.serviceIds.join(",")}|${pickerEpoch}`}
+                key={`${state.locationId}|${state.serviceIds.join(",")}|${chosenStaff ?? ""}|${pickerEpoch}`}
                 api={api}
                 locationId={state.locationId}
                 serviceIds={state.serviceIds}
+                staffId={chosenStaff ?? undefined}
+                waitlistEnabled={catalog.waitlistEnabled}
                 today={catalog.today}
                 maxAdvanceDays={catalog.maxAdvanceDays}
                 timezone={timezone}
@@ -337,6 +366,7 @@ export function FlowBody({ api, catalog, onReloadCatalog, embedded, rootRef }: F
                   timezone={timezone}
                   locationName={location?.name ?? null}
                   serviceNames={services.map((s) => s.name)}
+                  staffName={staffName}
                 />
                 <DetailsStep
                   details={state.details}
@@ -373,6 +403,7 @@ export function FlowBody({ api, catalog, onReloadCatalog, embedded, rootRef }: F
                   timezone={timezone}
                   locationName={location?.name ?? null}
                   serviceNames={services.map((s) => s.name)}
+                  staffName={staffName}
                 />
                 {holdClock ? (
                   <HoldCountdown clock={holdClock} onExpire={handleHoldExpired} />
@@ -390,13 +421,19 @@ export function FlowBody({ api, catalog, onReloadCatalog, embedded, rootRef }: F
         </section>
 
         <Ticket
-          items={services.map((s) => ({ id: s.id, name: s.name, priceCents: s.priceCents }))}
+          items={ticketLines(state, catalog).map((l) => ({
+            id: l.id,
+            name: l.name,
+            priceCents: l.priceCents,
+          }))}
           locationName={location?.name ?? null}
           whenIso={state.hold?.start ?? state.slot?.start ?? null}
           timezone={timezone}
           totalCents={state.hold?.totalCents ?? totals.totalCents}
           durationMin={totals.durationMin}
           depositCents={state.hold?.depositCents ?? totals.depositCents}
+          staffName={staffName}
+          estimate={estimate && !state.hold}
           action={ticketAction}
         />
       </div>

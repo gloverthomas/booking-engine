@@ -116,7 +116,13 @@ describe("seniority price table", () => {
         h.db,
         "owner:u1",
         serviceInputSchema.parse(
-          formInput({ id, levelPrices: [{ level: 1, price: "80" }, { level: 2, price: "90" }] }),
+          formInput({
+            id,
+            levelPrices: [
+              { level: 1, price: "80" },
+              { level: 2, price: "90" },
+            ],
+          }),
         ),
       );
       expect((await getService(h.db, id))?.levelPrices).toEqual([
@@ -160,7 +166,12 @@ describe("seniority price table", () => {
         h.db,
         "owner:u1",
         serviceInputSchema.parse(
-          formInput({ levelPrices: [{ level: 2, price: "90" }, { level: 1, price: "75" }] }),
+          formInput({
+            levelPrices: [
+              { level: 2, price: "90" },
+              { level: 1, price: "75" },
+            ],
+          }),
         ),
       );
       const listed = (await listServices(h.db)).find((s) => s.id === id);
@@ -187,7 +198,9 @@ describe("seniority price table", () => {
     await expect(
       saveService(h.db, "owner:u1", {
         ...parsed,
-        staff: [{ staffId: "00000000-0000-4000-8000-000000000000", priceCents: null, durationMin: null }],
+        staff: [
+          { staffId: "00000000-0000-4000-8000-000000000000", priceCents: null, durationMin: null },
+        ],
       }),
     ).rejects.toSatisfy(isAdminError);
   });

@@ -107,10 +107,7 @@ describe("GET /availability with stylists", () => {
 
   it("still passes a stylist through when choosing is off (a reschedule stays with its stylist)", async () => {
     const backend = makeBackend();
-    await handleAvailability(
-      makeDeps({ backend }),
-      get(url(`&staffId=${STAFF_ALEX}`)),
-    );
+    await handleAvailability(makeDeps({ backend }), get(url(`&staffId=${STAFF_ALEX}`)));
     expect(backend.getAvailableSlots).toHaveBeenCalledWith(
       expect.objectContaining({ staffId: STAFF_ALEX }),
     );
@@ -141,7 +138,10 @@ describe("POST /holds with stylists", () => {
 
   it("pins the quoted stylist for 'anyone' without marking them as requested", async () => {
     const backend = makeBackend();
-    await handleCreateHold(depsWithStaff({ backend }), post({ ...validHoldBody, staffId: STAFF_ALEX }));
+    await handleCreateHold(
+      depsWithStaff({ backend }),
+      post({ ...validHoldBody, staffId: STAFF_ALEX }),
+    );
     expect(backend.createHold).toHaveBeenCalledWith(
       expect.objectContaining({ staffId: STAFF_ALEX, staffRequested: false }),
     );

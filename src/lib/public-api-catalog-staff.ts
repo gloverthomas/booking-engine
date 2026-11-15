@@ -36,7 +36,10 @@ export async function loadStaffByLocation(
     db.select().from(serviceStaff).where(inArray(serviceStaff.serviceId, serviceIds)),
     db.select().from(serviceLevelPrice).where(inArray(serviceLevelPrice.serviceId, serviceIds)),
     db
-      .selectDistinct({ staffId: availabilityRule.staffId, locationId: availabilityRule.locationId })
+      .selectDistinct({
+        staffId: availabilityRule.staffId,
+        locationId: availabilityRule.locationId,
+      })
       .from(availabilityRule)
       .where(
         and(

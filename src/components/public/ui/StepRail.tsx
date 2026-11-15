@@ -3,6 +3,7 @@ import type { StepId } from "../flow/state";
 export const STEP_LABELS: Record<StepId, string> = {
   location: "Location",
   services: "Services",
+  staff: "Stylist",
   time: "Time",
   details: "Details",
   pay: "Deposit",

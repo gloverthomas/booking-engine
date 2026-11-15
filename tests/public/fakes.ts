@@ -65,15 +65,15 @@ export const catalog: CatalogData = {
 
 /** The same catalog with stylists on: Alex at the service price, Bea cheaper but slower on a cut. */
 const stylists: CatalogStaff[] = [
-      {
-        id: STAFF_ALEX,
-        name: "Alex",
-        offers: {
-          [SVC_CUT]: { priceCents: 9500, durationMin: 45 },
-          [SVC_BEARD]: { priceCents: 3000, durationMin: 15 },
-        },
-      },
-      { id: STAFF_BEA, name: "Bea", offers: { [SVC_CUT]: { priceCents: 7500, durationMin: 60 } } },
+  {
+    id: STAFF_ALEX,
+    name: "Alex",
+    offers: {
+      [SVC_CUT]: { priceCents: 9500, durationMin: 45 },
+      [SVC_BEARD]: { priceCents: 3000, durationMin: 15 },
+    },
+  },
+  { id: STAFF_BEA, name: "Bea", offers: { [SVC_CUT]: { priceCents: 7500, durationMin: 60 } } },
 ];
 
 export const staffCatalog: CatalogData = {

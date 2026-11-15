@@ -91,17 +91,19 @@ describe("catalog with stylists (real Postgres via PGlite)", () => {
       { serviceId: cut.id, staffId: dee.id },
       { serviceId: cut.id, staffId: gone.id },
     ]);
-    await db.insert(serviceLevelPrice).values([
-      { serviceId: cut.id, level: 1, priceCents: 7500, durationMin: 60 },
-    ]);
-    await db.insert(availabilityRule).values([
-      rule(seed.stylist.id, seed.loc.id),
-      rule(seed.stylist.id, southId),
-      rule(bea.id, seed.loc.id),
-      rule(cy.id, seed.loc.id),
-      rule(dee.id, southId),
-      rule(gone.id, seed.loc.id),
-    ]);
+    await db
+      .insert(serviceLevelPrice)
+      .values([{ serviceId: cut.id, level: 1, priceCents: 7500, durationMin: 60 }]);
+    await db
+      .insert(availabilityRule)
+      .values([
+        rule(seed.stylist.id, seed.loc.id),
+        rule(seed.stylist.id, southId),
+        rule(bea.id, seed.loc.id),
+        rule(cy.id, seed.loc.id),
+        rule(dee.id, southId),
+        rule(gone.id, seed.loc.id),
+      ]);
 
     const [b] = await db
       .insert(booking)
@@ -161,9 +163,7 @@ describe("catalog with stylists (real Postgres via PGlite)", () => {
   });
 
   it("leaves out stylists whose weekly hours at the location have all ended", async () => {
-    await db.insert(availabilityRule).values(
-      rule(dee.id, seed.loc.id, { validTo: "2026-11-01" }),
-    );
+    await db.insert(availabilityRule).values(rule(dee.id, seed.loc.id, { validTo: "2026-11-01" }));
     const catalog = await loadCatalog(db, await loadBusiness(db), NOW);
     expect(catalog.locations.find((l) => l.id === seed.loc.id)?.staff.map((s) => s.name)).toEqual([
       "Bea",

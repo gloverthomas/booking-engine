@@ -120,7 +120,9 @@ export function staffOptions(
   };
   const people = eligible.flatMap((person) => {
     const quote = quoteFor(person, services);
-    return quote ? [{ id: person.id, name: person.name, quote, showPrice: differs, fromPrefix: false }] : [];
+    return quote
+      ? [{ id: person.id, name: person.name, quote, showPrice: differs, fromPrefix: false }]
+      : [];
   });
   return [anyone, ...people];
 }

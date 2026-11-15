@@ -5,15 +5,24 @@ import type {
   HoldData,
   SlotDto,
 } from "@/lib/public-api-types";
-import { estimateDepositCents, sumTotals } from "@/lib/public-api-money";
+import {
+  baseQuote,
+  eligibleStaff,
+  quoteFor,
+  quoteRange,
+  staffOptions,
+  type StaffOption,
+} from "@/lib/public-api-staff";
 import { EMPTY_DETAILS, type DetailsForm } from "./details";
 
-export type StepId = "location" | "services" | "time" | "details" | "pay";
+export type StepId = "location" | "services" | "staff" | "time" | "details" | "pay";
 
 export interface FlowState {
   step: StepId;
   locationId: string | null;
   serviceIds: string[];
+  /** The stylist the client chose; null is "Anyone available". Only used when choosing is on. */
+  staffId: string | null;
   /** Local date (YYYY-MM-DD) the client is looking at. */
   date: string | null;
   slot: SlotDto | null;
@@ -26,6 +35,7 @@ export interface FlowState {
 export type FlowAction =
   | { type: "selectLocation"; locationId: string }
   | { type: "toggleService"; serviceId: string }
+  | { type: "pickStaff"; staffId: string | null }
   | { type: "pickDate"; date: string }
   | { type: "pickSlot"; slot: SlotDto }
   | { type: "editDetails"; patch: Partial<DetailsForm> }
@@ -40,6 +50,7 @@ export function initialState(): FlowState {
     step: "services",
     locationId: null,
     serviceIds: [],
+    staffId: null,
     date: null,
     slot: null,
     details: EMPTY_DETAILS,
@@ -69,6 +80,7 @@ export function flowReducer(state: FlowState, action: FlowAction): FlowState {
         ...state,
         locationId: action.locationId,
         serviceIds: [],
+        staffId: null,
         date: null,
         slot: null,
         hold: null,
@@ -82,6 +94,11 @@ export function flowReducer(state: FlowState, action: FlowAction): FlowState {
       // Different services mean a different duration, so earlier availability no longer applies.
       return { ...state, serviceIds, date: null, slot: null, notice: null };
     }
+
+    case "pickStaff":
+      // Availability is per stylist, so a different choice means the picked day and time no longer apply.
+      if (action.staffId === state.staffId) return { ...state, notice: null };
+      return { ...state, staffId: action.staffId, date: null, slot: null, notice: null };
 
     case "pickDate":
       return { ...state, date: action.date, slot: null };
@@ -137,17 +154,85 @@ export interface FlowTotals {
   depositCents: number;
 }
 
-export function flowTotals(state: FlowState, catalog: CatalogData): FlowTotals {
+/** The stylist choice, only when it still makes sense for the services and location. */
+export function chosenStaffId(state: FlowState, catalog: CatalogData): string | null {
+  const location = selectedLocation(state, catalog);
+  if (!catalog.chooseStaff || !location || state.staffId === null) return null;
+  const ok = eligibleStaff(location.staff, state.serviceIds).some((p) => p.id === state.staffId);
+  return ok ? state.staffId : null;
+}
+
+/** Rows for the stylist step ("Anyone" first). Empty when clients cannot choose. */
+export function staffStepOptions(state: FlowState, catalog: CatalogData): StaffOption[] {
+  const location = selectedLocation(state, catalog);
+  if (!catalog.chooseStaff || !location) return [];
+  return staffOptions(location.staff, selectedServices(state, catalog));
+}
+
+/** Who the booking is with: the stylist asked for, else the one the picked time is with. */
+function resolvedStaff(state: FlowState, catalog: CatalogData) {
+  const location = selectedLocation(state, catalog);
+  if (!catalog.chooseStaff || !location) return null;
+  const id = chosenStaffId(state, catalog) ?? state.slot?.staffId ?? null;
+  return location.staff.find((p) => p.id === id) ?? null;
+}
+
+export function selectedStaffName(state: FlowState, catalog: CatalogData): string | null {
+  return resolvedStaff(state, catalog)?.name ?? null;
+}
+
+/** The stylist's totals when known; otherwise Anyone's lowest; otherwise the plain service prices. */
+function currentQuote(state: FlowState, catalog: CatalogData) {
   const services = selectedServices(state, catalog);
-  const { totalCents, durationMin } = sumTotals(services);
-  return { totalCents, durationMin, depositCents: estimateDepositCents(services) };
+  const person = resolvedStaff(state, catalog);
+  const personal = person ? quoteFor(person, services) : null;
+  if (personal) return { quote: personal, estimate: false };
+
+  const location = selectedLocation(state, catalog);
+  if (catalog.chooseStaff && location) {
+    const range = quoteRange(eligibleStaff(location.staff, state.serviceIds), services);
+    if (range) return { quote: range.low, estimate: range.differs };
+  }
+  return { quote: baseQuote(services), estimate: false };
+}
+
+export function flowTotals(state: FlowState, catalog: CatalogData): FlowTotals {
+  const { quote } = currentQuote(state, catalog);
+  return {
+    totalCents: quote.totalCents,
+    durationMin: quote.durationMin,
+    depositCents: quote.depositCents,
+  };
+}
+
+/** True when the total is the lowest of several stylists' prices, so the page says "from". */
+export function isEstimate(state: FlowState, catalog: CatalogData): boolean {
+  return currentQuote(state, catalog).estimate;
+}
+
+/** Selected services at the price of whoever will do them, for the running ticket. */
+export function ticketLines(state: FlowState, catalog: CatalogData) {
+  return currentQuote(state, catalog).quote.lines;
+}
+
+/**
+ * Whether the stylist step exists. It depends on the location, not the services, so the rail does not
+ * change shape as services are ticked; with several locations it shows if any of them has a choice.
+ */
+function hasStaffChoice(catalog: CatalogData, state: FlowState): boolean {
+  if (!catalog.chooseStaff) return false;
+  const location = selectedLocation(state, catalog);
+  if (location) return location.staff.length >= 2;
+  return catalog.locations.some((l) => l.staff.length >= 2);
 }
 
 /** The ordered steps for this catalog. Location is skipped for one site; pay for free bookings. */
 export function stepsFor(catalog: CatalogData, state: FlowState): StepId[] {
   const steps: StepId[] = [];
   if (catalog.locations.length > 1) steps.push("location");
-  steps.push("services", "time", "details");
+  steps.push("services");
+  if (hasStaffChoice(catalog, state)) steps.push("staff");
+  steps.push("time", "details");
   const needsDeposit = flowTotals(state, catalog).depositCents > 0 || state.serviceIds.length === 0;
   if (needsDeposit) steps.push("pay");
   return steps;

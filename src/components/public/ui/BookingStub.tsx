@@ -19,7 +19,7 @@ interface BookingStubProps {
 
 /** The booking as an ink-black ticket with a perforated stub for the money. */
 export function BookingStub({ data }: BookingStubProps) {
-  const { booking, timezone } = data;
+  const { booking, timezone, staffName } = data;
   const status = STATUS_LABELS[booking.status] ?? { label: booking.status, tone: "warn" as const };
   const durationMin = Math.round(
     (new Date(booking.end).getTime() - new Date(booking.start).getTime()) / 60_000,
@@ -38,6 +38,12 @@ export function BookingStub({ data }: BookingStubProps) {
             <dt>Where</dt>
             <dd>{booking.locationName}</dd>
           </div>
+          {staffName ? (
+            <div className="rk-stub__row">
+              <dt>Stylist</dt>
+              <dd>{staffName}</dd>
+            </div>
+          ) : null}
           <div className="rk-stub__row">
             <dt>Time needed</dt>
             <dd>{formatDuration(durationMin)}</dd>
