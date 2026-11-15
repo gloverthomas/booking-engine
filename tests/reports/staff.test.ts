@@ -233,11 +233,12 @@ describe("role scoping on the server", () => {
 
   test("a stylist cannot read another stylist's numbers by changing the query string", async () => {
     const alexScope = { kind: "own", staffId: alexId } as const;
-    for (const attack of [
+    const attacks: Array<Record<string, string>> = [
       { staff: fx.staffId },
       { staff: fx.staffId, groupBy: "staff" },
       { groupBy: "location" },
-    ]) {
+    ];
+    for (const attack of attacks) {
       const revenue = await buildReportTable(t.db, "revenue", ctx(attack, alexScope));
       const total = (revenue.rows as Array<{ netCents: number }>).reduce(
         (s, r) => s + r.netCents,
