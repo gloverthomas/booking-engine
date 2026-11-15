@@ -306,6 +306,8 @@ export async function claimOffer(
       return { kind: "taken" };
     }
 
+    // The stylist was the person's choice (or the owner's offer), so never auto-reassign this booking.
+    await tx.update(booking).set({ staffRequested: true }).where(eq(booking.id, hold.bookingId));
     await tx
       .update(waitlistOffer)
       .set({ status: "claimed", claimedBookingId: hold.bookingId })
