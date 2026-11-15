@@ -110,6 +110,14 @@ export default function PrivacyPage() {
             <td>Global</td>
           </tr>
           <tr>
+            <td>Google Maps</td>
+            <td>
+              The map of the salon on the booking page. Loading it shares your IP address and
+              browser details with Google.
+            </td>
+            <td>Global</td>
+          </tr>
+          <tr>
             <td>Sentry</td>
             <td>Error monitoring (details removed)</td>
             <td>United States</td>

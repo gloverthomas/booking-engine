@@ -102,6 +102,15 @@ export function FlowBody({ api, catalog, onReloadCatalog, embedded, rootRef }: F
   });
   const headingRef = useRef<HTMLHeadingElement>(null);
 
+  // Errors belong to a submit attempt. Never carry them into a step the person has only just reached
+  // (state adjusted during render, which React supports for exactly this case).
+  const [errorsStep, setErrorsStep] = useState(state.step);
+  if (errorsStep !== state.step) {
+    setErrorsStep(state.step);
+    setErrors({});
+    setAttempt(0);
+  }
+
   const steps = stepsFor(catalog, state);
   const location = selectedLocation(state, catalog);
   const services = selectedServices(state, catalog);
@@ -249,6 +258,7 @@ export function FlowBody({ api, catalog, onReloadCatalog, embedded, rootRef }: F
                 : "Services";
         return (
           <button
+            key="ticket-next"
             type="button"
             className="rk-btn"
             disabled={!canLeaveStep(state, state.step)}
@@ -262,6 +272,7 @@ export function FlowBody({ api, catalog, onReloadCatalog, embedded, rootRef }: F
       case "details":
         return (
           <button
+            key="ticket-submit"
             type="submit"
             form={DETAILS_FORM_ID}
             className="rk-btn"

@@ -416,3 +416,46 @@
   width: 100%;
   margin-top: var(--rk-s-4);
 }
+
+/* Map on the location step ----------------------------------------------- */
+
+.rk-map {
+  margin-top: 1.25rem;
+  border: 2px solid var(--rk-ink);
+  background: var(--rk-paper-deep, transparent);
+}
+.rk-map__frame {
+  display: block;
+  width: 100%;
+  height: clamp(14rem, 38vw, 20rem);
+  border: 0;
+  border-bottom: 2px solid var(--rk-ink);
+}
+.rk-map__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
+}
+.rk-map__address {
+  font-weight: 600;
+}
+.rk-map__links {
+  display: flex;
+  gap: 1.25rem;
+}
+.rk-map__links a {
+  font-family: var(--rk-font-mono, monospace);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-underline-offset: 0.25em;
+}
+.rk-map__note {
+  margin: 0;
+  padding: 0 1rem 0.9rem;
+  color: var(--rk-ink-soft, inherit);
+  font-size: 0.92rem;
+}
