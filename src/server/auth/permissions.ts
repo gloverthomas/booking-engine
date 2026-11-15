@@ -25,6 +25,7 @@ export const PERMISSIONS = [
   "settings.edit",
   "integrations.manage",
   "money.refund",
+  "data.import",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

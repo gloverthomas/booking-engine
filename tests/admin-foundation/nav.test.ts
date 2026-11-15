@@ -24,6 +24,7 @@ describe("admin navigation", () => {
       "Reports",
       "Catalog",
       "Staff",
+      "Import",
       "Integrations",
       "Settings",
     ]);
@@ -36,6 +37,13 @@ describe("admin navigation", () => {
 
   test("the owner sees everything", () => {
     expect(navFor("owner")).toEqual([...NAV_ITEMS]);
+  });
+
+  test("only the owner sees Import", () => {
+    expect(labels("owner")).toContain("Import");
+    for (const role of ["manager", "stylist", "reception"] as const) {
+      expect(labels(role)).not.toContain("Import");
+    }
   });
 
   test("a manager runs the team but has no Integrations or Settings", () => {

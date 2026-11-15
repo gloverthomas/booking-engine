@@ -31,6 +31,7 @@ const reminderJobSchema = z.object({
 export type ReminderJob = z.infer<typeof reminderJobSchema>;
 
 const eventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("booking.imported"), bookingId: z.uuid() }),
   z.object({
     type: z.literal("booking.confirmed"),
     bookingId: z.uuid(),
@@ -179,6 +180,11 @@ export async function handleNotificationEvent(
       return;
     case "waitlist.offer_created":
       await (context.notifyWaitlistOffer ?? notifyWaitlistOffer)(db, event.offerId, deps);
+      return;
+    case "booking.imported":
+      // Only the day-before reminder: the client was already told by the old system, and the owner
+      // alert, Google event and Xero invoice for it already exist there.
+      await scheduleReminder(context, event.bookingId);
       return;
     case "booking.expired":
       // An unpaid hold lapsed: nobody was told about it, so there is nothing to retract.

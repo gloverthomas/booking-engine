@@ -27,6 +27,8 @@ export type DomainEvent =
       previousStaffId?: string;
     }
   | { type: "booking.completed"; bookingId: string }
+  /** A future booking was imported from another system. Only its reminder is scheduled: no messages, Xero or Google. */
+  | { type: "booking.imported"; bookingId: string }
   /** An unpaid hold lapsed and its slot is free again. Emitted by expireHolds. */
   | { type: "booking.expired"; bookingId: string }
   | { type: "booking.no_show"; bookingId: string; feeCents: number }

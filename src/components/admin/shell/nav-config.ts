@@ -13,6 +13,7 @@ export type NavIcon =
   | "reports"
   | "catalog"
   | "staff"
+  | "import"
   | "integrations"
   | "settings";
 
@@ -47,6 +48,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/reports", label: "Reports", icon: "reports", permission: "reports.viewOwn" },
   { href: "/catalog", label: "Catalog", icon: "catalog", permission: "catalog.edit" },
   { href: "/staff", label: "Staff", icon: "staff", permission: "staff.manage" },
+  { href: "/import", label: "Import", icon: "import", permission: "data.import" },
   {
     href: "/integrations",
     label: "Integrations",

@@ -161,6 +161,34 @@ describe("booking.confirmed", () => {
   });
 });
 
+describe("booking.imported", () => {
+  test("schedules the reminder but sends no confirmation or owner alert", async () => {
+    const id = await createBooking(h, { depositPaidCents: 0 });
+    await h.db.update(booking).set({ source: "import:timely" }).where(eq(booking.id, id));
+
+    await handleNotificationEvent(ctx, { eventId: "i1", type: "booking.imported", bookingId: id });
+
+    expect(h.sms.sent).toHaveLength(0);
+    expect(h.email.sent).toHaveLength(0);
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0].queue).toBe(REMINDER_QUEUE);
+    expect(jobs[0].startAfter).toEqual(new Date(START.getTime() - 24 * 3_600_000));
+  });
+
+  test("replaying the event does not schedule a second reminder", async () => {
+    const id = await createBooking(h, { depositPaidCents: 0 });
+    const event = { eventId: "i1", type: "booking.imported", bookingId: id };
+    await handleNotificationEvent(ctx, event);
+    await handleNotificationEvent(ctx, event);
+    expect(jobs).toHaveLength(1);
+  });
+
+  test("ignores a malformed event", async () => {
+    await handleNotificationEvent(ctx, { type: "booking.imported" });
+    expect(jobs).toHaveLength(0);
+  });
+});
+
 describe("booking.rescheduled", () => {
   const previousStart = "2026-11-13T22:00:00.000Z";
 

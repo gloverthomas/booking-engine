@@ -566,4 +566,31 @@ describe("consumer.xero", () => {
       expect(xero.calls).toHaveLength(0);
     });
   });
+
+  describe("bookings imported from another system", () => {
+    beforeEach(async () => {
+      // Their invoices already exist in the old system, so Xero must hear nothing about them.
+      await t.db
+        .update(booking)
+        .set({ source: "import:timely" })
+        .where(eq(booking.id, seed.bookingId));
+    });
+
+    test("confirming, paying, refunding and cancelling create no invoices, payments or credit notes", async () => {
+      const deposit = await seedPayment(t.db, seed.bookingId);
+      await confirm();
+      await handleXeroDomainEvent(deps, { type: "payment.succeeded", paymentId: deposit.id });
+      await handleXeroDomainEvent(deps, { type: "payment.refunded", paymentId: deposit.id });
+      await handleXeroDomainEvent(deps, { type: "booking.cancelled", bookingId: seed.bookingId });
+      await handleXeroDomainEvent(deps, { type: "booking.completed", bookingId: seed.bookingId });
+      expect(xero.calls).toHaveLength(0);
+      expect((await getBooking()).xeroInvoiceId).toBeNull();
+    });
+
+    test("a booking made in this system still syncs", async () => {
+      await t.db.update(booking).set({ source: "online" }).where(eq(booking.id, seed.bookingId));
+      await confirm();
+      expect(xero.count("createInvoice")).toBe(1);
+    });
+  });
 });

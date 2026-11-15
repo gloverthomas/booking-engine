@@ -9,6 +9,7 @@ import {
   Scissors,
   Settings,
   Timer,
+  Upload,
   Users,
   UsersRound,
   type LucideIcon,
@@ -27,6 +28,7 @@ const icons: Record<NavIcon, LucideIcon> = {
   reports: ChartColumn,
   catalog: Scissors,
   staff: IdCard,
+  import: Upload,
   integrations: Plug,
   settings: Settings,
 };

@@ -1,3 +1,4 @@
+import { isImportedSource } from "@/server/import/constants";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { booking, client, payment } from "@/db/schema";
 import { sendInvoiceEmail } from "@/server/notifications";
@@ -208,6 +209,8 @@ export async function emailInvoiceOnce(
 
 async function onBookingConfirmed(ctx: Ctx, bookingId: string): Promise<void> {
   const bundle = await loadBookingBundle(ctx.deps.db, bookingId);
+  // Imported bookings were already invoiced in the old system; syncing them would double count.
+  if (bundle && isImportedSource(bundle.booking.source)) return;
   if (!bundle || !LIVE_STATUSES.includes(bundle.booking.status)) {
     ctx.deps.log({ event: "xero_skipped", reason: "not_live", bookingId });
     return;
@@ -239,6 +242,8 @@ async function onPaymentSucceeded(ctx: Ctx, paymentId: string): Promise<void> {
   if (!SETTLED_STATUSES.includes(p.status)) return;
 
   const bundle = await loadBookingBundle(deps.db, p.bookingId);
+  // Imported bookings were already invoiced in the old system; syncing them would double count.
+  if (bundle && isImportedSource(bundle.booking.source)) return;
   if (!bundle) return;
 
   if (p.kind === "no_show_fee" || p.kind === "late_cancel_fee") {
@@ -268,6 +273,8 @@ async function onPaymentRefunded(ctx: Ctx, refundId: string): Promise<void> {
     return;
   }
   const bundle = await loadBookingBundle(deps.db, refund.bookingId);
+  // Imported bookings were already invoiced in the old system; syncing them would double count.
+  if (bundle && isImportedSource(bundle.booking.source)) return;
   if (!bundle?.booking.xeroInvoiceId) {
     deps.log({ event: "xero_skipped", reason: "no_invoice", paymentId: refundId });
     return;
@@ -343,6 +350,8 @@ async function creditUnpaidBalance(
 ): Promise<void> {
   const { deps, rt, timezone } = ctx;
   const bundle = await loadBookingBundle(deps.db, bookingId);
+  // Imported bookings were already invoiced in the old system; syncing them would double count.
+  if (bundle && isImportedSource(bundle.booking.source)) return;
   const invoiceId = bundle?.booking.xeroInvoiceId;
   if (!bundle || !invoiceId) return;
 

@@ -359,9 +359,17 @@ export const client = pgTable(
     stripeCustomerId: text("stripe_customer_id"),
     xeroContactId: text("xero_contact_id"),
     mergedIntoId: uuid("merged_into_id"),
+    /** Id in the system this record was imported from, e.g. "timely:12345". Makes imports re-runnable. */
+    externalRef: text("external_ref"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("client_email_idx").on(t.email), index("client_phone_idx").on(t.phone)],
+  (t) => [
+    index("client_email_idx").on(t.email),
+    index("client_phone_idx").on(t.phone),
+    uniqueIndex("client_external_ref_uidx")
+      .on(t.externalRef)
+      .where(sql`${t.externalRef} IS NOT NULL`),
+  ],
 );
 
 /* -------------------------------------------------------------------------- */
@@ -411,6 +419,8 @@ export const booking = pgTable(
     cancelReason: text("cancel_reason"),
     gcalEventId: text("gcal_event_id"),
     xeroInvoiceId: text("xero_invoice_id"),
+    /** Id in the system this booking was imported from, e.g. "timely:98765". Makes imports re-runnable. */
+    externalRef: text("external_ref"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -419,6 +429,9 @@ export const booking = pgTable(
     index("booking_client_idx").on(t.clientId),
     index("booking_status_idx").on(t.status),
     uniqueIndex("booking_manage_token_uidx").on(t.manageTokenHash),
+    uniqueIndex("booking_external_ref_uidx")
+      .on(t.externalRef)
+      .where(sql`${t.externalRef} IS NOT NULL`),
   ],
 );
 

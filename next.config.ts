@@ -19,11 +19,14 @@ const ADMIN_PATHS = [
   "/timesheets/:path*",
   "/team/:path*",
   "/waitlist/:path*",
+  "/import/:path*",
 ];
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
+  // The import screen posts a whole CSV export (thousands of rows) in one action.
+  experimental: { serverActions: { bodySizeLimit: "12mb" } },
   turbopack: {
     rules: {
       "*.css": {
