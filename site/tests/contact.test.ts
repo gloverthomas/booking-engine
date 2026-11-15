@@ -19,7 +19,7 @@ function deps(
       sent.push(m);
     },
     allow: () => true,
-    config: { to: "inbox@example.com", from: "HairMate <hello@hairmate.shop>" },
+    config: { to: "inbox@example.com", from: "HairMate <hello@hairmate.world>" },
     log: vi.fn(),
     ...over,
   };
@@ -87,7 +87,7 @@ describe("handleContact", () => {
     const d = deps({ config: {} });
     const result = await handleContact(valid, "1.1.1.1", d);
     expect(result.status).toBe(503);
-    expect(result.body.error).toContain("hello@hairmate.shop");
+    expect(result.body.error).toContain("hello@hairmate.world");
   });
 
   test("a provider failure is a 502 and the message content is never logged", async () => {

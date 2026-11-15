@@ -27,10 +27,10 @@ export function entityConfigured(entity: Entity): boolean {
 
 export const SITE = {
   name: "HairMate",
-  url: process.env.SITE_URL ?? "https://hairmate.shop",
-  appUrl: process.env.APP_URL ?? "https://app.hairmate.shop",
-  supportEmail: "hello@hairmate.shop",
-  privacyEmail: "privacy@hairmate.shop",
+  url: process.env.SITE_URL ?? "https://hairmate.world",
+  appUrl: process.env.APP_URL ?? "https://app.hairmate.world",
+  supportEmail: "hello@hairmate.world",
+  privacyEmail: "privacy@hairmate.world",
 } as const;
 
 /** Date shown on the legal pages. Bump when the wording changes. */

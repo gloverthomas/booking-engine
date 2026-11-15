@@ -1,4 +1,4 @@
-# HairMate site (hairmate.shop)
+# HairMate site (hairmate.world)
 
 The marketing site, legal pages and contact form. A separate project from the booking app in the repo
 root, with its own dependencies and its own deploy, so a change here can never affect bookings.
@@ -25,7 +25,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
    Until all four are set, the pages say "to be confirmed", show a "Draft" notice, and the site tells search
    engines not to index it (`robots` and the `noindex` meta tag).
 2. **Contact form:** set `RESEND_API_KEY`, `CONTACT_FROM_EMAIL` (a verified sending address) and
-   `CONTACT_TO_EMAIL`. Without them the form politely asks people to email `hello@hairmate.shop`.
+   `CONTACT_TO_EMAIL`. Without them the form politely asks people to email `hello@hairmate.world`.
    Optionally add Cloudflare Turnstile keys.
 3. **Mailboxes:** `hello@` and `privacy@` on the domain must exist (for example Cloudflare Email Routing
    forwarding to a real inbox).
@@ -37,4 +37,4 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ## Deploy (Railway)
 
 A separate service from the same repo: **Root directory** `site`, build `pnpm build`, start
-`pnpm start`. Point `hairmate.shop` at it. The booking app runs separately at `app.hairmate.shop`.
+`pnpm start`. Point `hairmate.world` at it. The booking app runs separately at `app.hairmate.world`.

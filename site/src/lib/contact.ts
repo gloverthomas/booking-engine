@@ -87,7 +87,7 @@ export async function handleContact(
       status: 503,
       body: {
         success: false,
-        error: "The contact form isn't available yet. Please email hello@hairmate.shop instead.",
+        error: "The contact form isn't available yet. Please email hello@hairmate.world instead.",
       },
     };
   }
@@ -110,7 +110,7 @@ export async function handleContact(
       status: 502,
       body: {
         success: false,
-        error: "We couldn't send your message. Please email hello@hairmate.shop.",
+        error: "We couldn't send your message. Please email hello@hairmate.world.",
       },
     };
   }
