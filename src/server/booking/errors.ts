@@ -26,6 +26,13 @@ export class SlotTakenError extends DomainError {
   }
 }
 
+/** The stylist is not rostered to work for the whole of the requested time (weekly hours and day exceptions). */
+export class NotRosteredError extends DomainError {
+  constructor(message = "That stylist is not working at that time") {
+    super(message);
+  }
+}
+
 export class PolicyVersionError extends DomainError {
   constructor(
     readonly expected: string,

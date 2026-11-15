@@ -8,14 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog } from "@/components/ui/dialog";
-import {
-  copyDay,
-  hhmmToMinutes,
-  minutesToHhmm,
-  WEEKDAYS_MON_FIRST,
-  type Week,
-} from "@/server/admin-foundation/week";
+import { copyDay, WEEKDAYS_MON_FIRST, type Week } from "@/server/admin-foundation/week";
 import { saveWeeklyHoursAction } from "../actions";
+import { TimeField } from "./time-field";
 
 interface WeeklyHoursEditorProps {
   staffId: string;
@@ -26,33 +21,6 @@ interface WeeklyHoursEditorProps {
 }
 
 const DEFAULT_RANGE = { startMinute: 9 * 60, endMinute: 17 * 60 };
-
-function TimeField({
-  label,
-  minutes,
-  onChange,
-}: {
-  label: string;
-  minutes: number;
-  onChange: (minutes: number) => void;
-}) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="sr-only">{label}</span>
-      <input
-        type="time"
-        step={300}
-        aria-label={label}
-        value={minutesToHhmm(Math.min(minutes, 1439))}
-        onChange={(e) => {
-          const parsed = hhmmToMinutes(e.target.value);
-          if (parsed !== null) onChange(parsed);
-        }}
-        className="min-h-11 w-full min-w-[7.5rem] rounded-control border border-line-strong bg-surface px-3 text-base text-ink hover:border-ink"
-      />
-    </label>
-  );
-}
 
 /** Edits one stylist's recurring week at one location: several ranges per day, copy a day to others. */
 export function WeeklyHoursEditor({

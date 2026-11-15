@@ -24,6 +24,8 @@ interface TimeOffManagerProps {
   staff: Array<{ id: string; name: string }>;
   blocks: TimeBlockView[];
   defaultStaffId: string;
+  /** Only people with roster.editAll can add or remove blocks; everyone else just sees them. */
+  canEdit: boolean;
   /** "YYYY-MM-DDTHH:mm" in the business timezone, to prefill the form. */
   defaultStart: string;
   defaultEnd: string;
@@ -34,6 +36,7 @@ export function TimeOffManager({
   staff,
   blocks,
   defaultStaffId,
+  canEdit,
   defaultStart,
   defaultEnd,
 }: TimeOffManagerProps) {
@@ -68,58 +71,60 @@ export function TimeOffManager({
         title={<span id="time-off-title">Time off</span>}
       />
       <CardBody className="flex flex-col gap-6">
-        <form onSubmit={onSubmit} noValidate className="grid gap-4 sm:grid-cols-2">
-          {error ? (
-            <Alert tone="danger" className="sm:col-span-2">
-              {error}
-            </Alert>
-          ) : null}
-          {staff.length > 1 ? (
-            <Select
-              label="Stylist"
-              value={staffId}
-              onChange={(e) => setStaffId(e.target.value)}
-              error={fieldErrors.staffId}
+        {canEdit ? (
+          <form onSubmit={onSubmit} noValidate className="grid gap-4 sm:grid-cols-2">
+            {error ? (
+              <Alert tone="danger" className="sm:col-span-2">
+                {error}
+              </Alert>
+            ) : null}
+            {staff.length > 1 ? (
+              <Select
+                label="Stylist"
+                value={staffId}
+                onChange={(e) => setStaffId(e.target.value)}
+                error={fieldErrors.staffId}
+                wrapperClassName="sm:col-span-2"
+              >
+                {staff.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            ) : null}
+            <Input
+              label="From"
+              type="datetime-local"
+              required
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+              error={fieldErrors.start}
+            />
+            <Input
+              label="To"
+              type="datetime-local"
+              required
+              value={end}
+              onChange={(e) => setEnd(e.target.value)}
+              error={fieldErrors.end}
+            />
+            <Input
+              label="Reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              error={fieldErrors.reason}
+              placeholder="Holiday, dentist, training…"
+              hint="Only you see this."
               wrapperClassName="sm:col-span-2"
-            >
-              {staff.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
-          ) : null}
-          <Input
-            label="From"
-            type="datetime-local"
-            required
-            value={start}
-            onChange={(e) => setStart(e.target.value)}
-            error={fieldErrors.start}
-          />
-          <Input
-            label="To"
-            type="datetime-local"
-            required
-            value={end}
-            onChange={(e) => setEnd(e.target.value)}
-            error={fieldErrors.end}
-          />
-          <Input
-            label="Reason"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            error={fieldErrors.reason}
-            placeholder="Holiday, dentist, training…"
-            hint="Only you see this."
-            wrapperClassName="sm:col-span-2"
-          />
-          <div className="sm:col-span-2">
-            <Button type="submit" loading={pending}>
-              Block this time
-            </Button>
-          </div>
-        </form>
+            />
+            <div className="sm:col-span-2">
+              <Button type="submit" loading={pending}>
+                Block this time
+              </Button>
+            </div>
+          </form>
+        ) : null}
 
         <div>
           <h3 className="eyebrow mb-2">Upcoming</h3>
@@ -131,7 +136,12 @@ export function TimeOffManager({
           ) : (
             <ul className="divide-y divide-line rounded-card border border-line">
               {blocks.map((block) => (
-                <TimeBlockRow key={block.id} block={block} showStaff={staff.length > 1} />
+                <TimeBlockRow
+                  key={block.id}
+                  block={block}
+                  showStaff={staff.length > 1}
+                  canEdit={canEdit}
+                />
               ))}
             </ul>
           )}
@@ -141,7 +151,15 @@ export function TimeOffManager({
   );
 }
 
-function TimeBlockRow({ block, showStaff }: { block: TimeBlockView; showStaff: boolean }) {
+function TimeBlockRow({
+  block,
+  showStaff,
+  canEdit,
+}: {
+  block: TimeBlockView;
+  showStaff: boolean;
+  canEdit: boolean;
+}) {
   const { pending, submit } = useSubmit();
   return (
     <li className="flex items-center justify-between gap-3 px-4 py-2">
@@ -152,14 +170,18 @@ function TimeBlockRow({ block, showStaff }: { block: TimeBlockView; showStaff: b
             "No reason given"}
         </p>
       </div>
-      <Button
-        variant="ghost"
-        loading={pending}
-        aria-label={`Remove blocked time ${block.label}`}
-        onClick={() => submit(() => deleteTimeBlockAction(block.id), { success: "Block removed" })}
-      >
-        <Trash2 aria-hidden className="size-4" />
-      </Button>
+      {canEdit ? (
+        <Button
+          variant="ghost"
+          loading={pending}
+          aria-label={`Remove blocked time ${block.label}`}
+          onClick={() =>
+            submit(() => deleteTimeBlockAction(block.id), { success: "Block removed" })
+          }
+        >
+          <Trash2 aria-hidden className="size-4" />
+        </Button>
+      ) : null}
     </li>
   );
 }
