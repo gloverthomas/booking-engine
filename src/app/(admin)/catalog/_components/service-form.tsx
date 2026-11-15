@@ -11,9 +11,14 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { ServiceFormInput } from "@/server/admin-foundation/catalog-schemas";
+import {
+  describeLevels,
+  effectivePricingFromDraft,
+} from "@/server/admin-foundation/catalog-pricing";
 import { centsToInputValue } from "@/server/admin-foundation/money";
 import { deleteServiceAction, saveServiceAction } from "../actions";
 import { IntakeQuestionsEditor, type IntakeQuestionDraft } from "./intake-questions-editor";
+import { EffectivePricesCard, SeniorityCard, type LevelDraft } from "./pricing-panel";
 
 export interface ServiceFormInitial {
   id?: string;
@@ -30,12 +35,14 @@ export interface ServiceFormInitial {
   intakeQuestions: IntakeQuestionDraft[];
   locationIds: string[];
   staff: Array<{ staffId: string; priceCents: number | null; durationMin: number | null }>;
+  /** Seniority prices already saved for this service. */
+  levelPrices: Array<{ level: number; priceCents: number | null; durationMin: number | null }>;
 }
 
 export interface ServiceFormProps {
   initial: ServiceFormInitial;
   locations: Array<{ id: string; name: string; active: boolean }>;
-  staff: Array<{ id: string; name: string }>;
+  staff: Array<{ id: string; name: string; level: number }>;
   /** Business default deposit %, shown as the placeholder for the override. */
   defaultDepositPct: number;
   categories: string[];
@@ -93,7 +100,28 @@ export function ServiceForm({
       }),
     ),
   );
+  const levels = describeLevels(staff, initial.levelPrices);
+  const [levelDrafts, setLevelDrafts] = useState<Record<number, LevelDraft>>(() =>
+    Object.fromEntries(
+      levels.map((row) => {
+        const saved = initial.levelPrices.find((r) => r.level === row.level);
+        return [
+          row.level,
+          {
+            price: centsToInputValue(saved?.priceCents),
+            durationMin: saved?.durationMin ? String(saved.durationMin) : "",
+          },
+        ];
+      }),
+    ),
+  );
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const effectiveRows = effectivePricingFromDraft(
+    { price, durationMin, offerings, levels: levelDrafts },
+    { priceCents: initial.priceCents, durationMin: initial.durationMin },
+    staff,
+  );
 
   function buildInput(): ServiceFormInput {
     return {
@@ -117,6 +145,11 @@ export function ServiceForm({
           price: offerings[s.id]?.price ?? "",
           durationMin: toNumber(offerings[s.id]?.durationMin ?? "") ?? null,
         })),
+      levelPrices: levels.map((row) => ({
+        level: row.level,
+        price: levelDrafts[row.level]?.price ?? "",
+        durationMin: toNumber(levelDrafts[row.level]?.durationMin ?? "") ?? null,
+      })),
     };
   }
 
@@ -151,6 +184,13 @@ export function ServiceForm({
         ...(current[staffId] ?? { offered: false, price: "", durationMin: "" }),
         ...patch,
       },
+    }));
+  }
+
+  function updateLevel(level: number, patch: Partial<LevelDraft>) {
+    setLevelDrafts((current) => ({
+      ...current,
+      [level]: { ...(current[level] ?? { price: "", durationMin: "" }), ...patch },
     }));
   }
 
@@ -322,6 +362,17 @@ export function ServiceForm({
           </fieldset>
         </CardBody>
       </Card>
+
+      <SeniorityCard
+        levels={levels}
+        drafts={levelDrafts}
+        onChange={updateLevel}
+        fieldErrors={fieldErrors}
+        servicePrice={price}
+        serviceDuration={durationMin}
+      />
+
+      <EffectivePricesCard rows={effectiveRows} />
 
       <Card aria-labelledby="svc-intake">
         <CardHeader title={<span id="svc-intake">Questions for the client</span>} />

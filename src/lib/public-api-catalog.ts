@@ -1,9 +1,23 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { booking, bookingService, business, location, service, serviceLocation } from "@/db/schema";
+import {
+  booking,
+  bookingService,
+  business,
+  location,
+  service,
+  serviceLocation,
+  staff,
+} from "@/db/schema";
 import type { Db } from "@/server/db-types";
 import { parseSettings, type BusinessSettings } from "@/server/settings";
+import { loadStaffByLocation } from "./public-api-catalog-staff";
 import { todayIn } from "./public-api-slots";
-import type { CatalogData, CatalogLocation, CatalogService } from "./public-api-types";
+import type {
+  CatalogData,
+  CatalogLocation,
+  CatalogService,
+  CatalogStaff,
+} from "./public-api-types";
 
 export interface BusinessContext {
   id: string;
@@ -66,6 +80,17 @@ export async function loadCatalog(db: Db, ctx: BusinessContext, now: Date): Prom
         .orderBy(asc(service.sortOrder), asc(service.name))
     : [];
 
+  const today = todayIn(ctx.timezone, now);
+  const servicesAt = (locationId: string) =>
+    links.filter((link) => link.locationId === locationId).map((link) => link.svc);
+  const staffAt = ctx.settings.chooseStaff
+    ? await loadStaffByLocation(
+        db,
+        new Map(locations.map((loc) => [loc.id, servicesAt(loc.id)])),
+        today,
+      )
+    : new Map<string, CatalogStaff[]>();
+
   const result: CatalogLocation[] = locations
     .map((loc) => ({
       id: loc.id,
@@ -78,15 +103,18 @@ export async function loadCatalog(db: Db, ctx: BusinessContext, now: Date): Prom
       services: links
         .filter((link) => link.locationId === loc.id)
         .map((link) => toCatalogService(link.svc, ctx.settings.depositPct)),
+      staff: staffAt.get(loc.id) ?? [],
     }))
     .filter((loc) => loc.services.length > 0);
 
   const { settings } = ctx;
   return {
     business: { name: ctx.name, timezone: ctx.timezone },
-    today: todayIn(ctx.timezone, now),
+    today,
     maxAdvanceDays: settings.maxAdvanceDays,
     holdMinutes: settings.holdMinutes,
+    chooseStaff: settings.chooseStaff,
+    waitlistEnabled: settings.waitlistEnabled,
     policy: {
       version: settings.policyVersion,
       text: settings.policyText,
@@ -105,6 +133,11 @@ export interface BookingContext {
   arrivalNote: string | null;
   phone: string | null;
   serviceIds: string[];
+  /** The stylist the booking is with. */
+  staffId: string;
+  staffName: string;
+  /** True when the client chose this stylist rather than "first available". */
+  staffRequested: boolean;
 }
 
 /**
@@ -125,9 +158,13 @@ export async function loadBookingContext(
       postcode: location.postcode,
       arrivalNote: location.arrivalNote,
       phone: location.phone,
+      staffId: booking.staffId,
+      staffName: staff.name,
+      staffRequested: booking.staffRequested,
     })
     .from(booking)
     .innerJoin(location, eq(location.id, booking.locationId))
+    .innerJoin(staff, eq(staff.id, booking.staffId))
     .where(eq(booking.id, bookingId));
   if (!row) return null;
 
@@ -147,5 +184,8 @@ export async function loadBookingContext(
     arrivalNote: row.arrivalNote,
     phone: row.phone,
     serviceIds: services.flatMap((s) => (s.serviceId ? [s.serviceId] : [])),
+    staffId: row.staffId,
+    staffName: row.staffName,
+    staffRequested: row.staffRequested,
   };
 }

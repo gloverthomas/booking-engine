@@ -95,6 +95,8 @@ export interface HoldRequestInput {
   details: DetailsForm;
   policyVersion: string;
   turnstileToken?: string;
+  staffId?: string;
+  staffRequested?: boolean;
 }
 
 const opt = (value: string): string | undefined => value.trim() || undefined;
@@ -105,6 +107,8 @@ export function buildHoldRequest(input: HoldRequestInput): HoldRequest {
     locationId: input.locationId,
     serviceIds: [...input.serviceIds],
     start: input.slotStart,
+    staffId: input.staffId,
+    staffRequested: input.staffId !== undefined && input.staffRequested === true,
     client: {
       firstName: details.firstName.trim(),
       lastName: details.lastName.trim(),

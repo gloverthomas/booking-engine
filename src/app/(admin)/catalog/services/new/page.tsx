@@ -4,7 +4,7 @@ import { getDb } from "@/db/client";
 import { PageHeader } from "@/components/ui/page-header";
 import { listLocations, listServices, listStaff } from "@/server/admin-foundation/catalog";
 import { getAdminSettings } from "@/server/admin-foundation/settings-admin";
-import { requireOwner } from "@/server/auth";
+import { requireAccess } from "@/server/auth/access";
 import { ServiceForm } from "../../_components/service-form";
 
 export const metadata: Metadata = { title: "New service" };
@@ -18,7 +18,7 @@ export default function NewServicePage() {
 }
 
 async function NewServiceBody() {
-  await requireOwner();
+  await requireAccess("catalog.edit");
   const db = getDb();
   const [locations, staff, services, { settings }] = await Promise.all([
     listLocations(db),
@@ -46,9 +46,12 @@ async function NewServiceBody() {
           intakeQuestions: [],
           locationIds: locations.filter((l) => l.active).map((l) => l.id),
           staff: [],
+          levelPrices: [],
         }}
         locations={locations.map((l) => ({ id: l.id, name: l.name, active: l.active }))}
-        staff={staff.filter((s) => s.active).map((s) => ({ id: s.id, name: s.name }))}
+        staff={staff
+          .filter((s) => s.active)
+          .map((s) => ({ id: s.id, name: s.name, level: s.level }))}
         defaultDepositPct={settings.depositPct}
         categories={categories}
       />

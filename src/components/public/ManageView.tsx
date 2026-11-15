@@ -230,6 +230,7 @@ function ReschedulePanel({ api, token, data, onDone, onError }: ReschedulePanelP
         api={api}
         locationId={data.location.id}
         serviceIds={data.serviceIds}
+        staffId={data.staffId ?? undefined}
         today={localDateOf(data.now, timezone)}
         maxAdvanceDays={data.maxAdvanceDays}
         timezone={timezone}

@@ -273,6 +273,58 @@
   color: var(--rk-ink-soft);
 }
 
+/* ---- Stylist step ---- */
+
+.rk-staff-who {
+  display: flex;
+  align-items: center;
+  gap: var(--rk-s-3);
+  min-width: 0;
+}
+
+.rk-staff-avatar {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font-family: var(--rk-font-display);
+  font-weight: 900;
+  font-stretch: 88%;
+  font-size: var(--rk-text-sm);
+  letter-spacing: 0.02em;
+}
+
+.rk-staff-note {
+  margin-bottom: var(--rk-s-4);
+  padding: var(--rk-s-4);
+  border: 2px dashed rgb(11 11 11 / 0.5);
+  color: var(--rk-ink-soft);
+}
+
+/* Prices that depend on the stylist: keep the row height steady whether or not a price shows. */
+.rk-option__facts:empty {
+  min-width: 0;
+}
+
+/* ---- Waitlist prompt (when a day or month has no times) ---- */
+
+.rk-waitlist {
+  margin-top: var(--rk-s-3);
+  font-weight: 700;
+}
+
+.rk-waitlist a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.25em;
+}
+
 /* ---- Hold countdown ---- */
 
 .rk-hold {

@@ -71,6 +71,9 @@ export function handleGetBooking(deps: PublicApiDeps, request: Request, token: s
           phone: r.context.phone,
         },
         serviceIds: r.context.serviceIds,
+        staffId: r.context.staffId,
+        staffName:
+          r.business.settings.chooseStaff || r.context.staffRequested ? r.context.staffName : null,
         businessName: r.business.name,
         timezone: r.business.timezone,
         now: deps.now().toISOString(),

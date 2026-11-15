@@ -13,6 +13,18 @@ Pages: `/book`, `/book/confirmed/[token]`, `/manage/[token]`. API: `/api/public/
 | `PUBLIC_EMBED_ORIGINS`               | `frame-ancestors` (below) | Comma-separated origins allowed to iframe the booking pages. Unset = same origin only. |
 | `PUBLIC_TRUSTED_PROXY_HOPS`          | rate limiting             | Reverse proxies in front of the app (default 1). Used to read the client IP safely.    |
 
+## Choosing a stylist and the waitlist
+
+- `settings.chooseStaff` on: the catalog lists `staff` per location (active, works there, offers the
+  service; price and time resolved through `priceFor` with the stylist override then their level price).
+  A "Stylist" step appears after services when a location has two or more stylists. "Anyone available"
+  is the default; availability slots then carry `staffId`, `priceCents` and `durationMin` for the
+  stylist assigned to that time, and the hold is pinned to that stylist (`staffRequested: false`). Picking
+  a person sends `staffId` with `staffRequested: true`. With the setting off nothing changes.
+- `settings.waitlistEnabled` on: when a chosen day or the whole month has no times, the picker shows
+  `<JoinWaitlistCta />` (owned by the waitlist workstream). Not shown when rescheduling.
+- The manage page always reschedules within the booking's own stylist (`staffId` in the response).
+
 ## Embedding in an iframe
 
 1. Set `PUBLIC_EMBED_ORIGINS=https://www.example.com` and wire the headers in `next.config.ts`:

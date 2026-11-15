@@ -1,11 +1,14 @@
-import type { CatalogService } from "@/lib/public-api-types";
+import type { CatalogService, CatalogStaff } from "@/lib/public-api-types";
 import { formatAud, formatDuration } from "@/lib/public-api-money";
+import { serviceRange } from "@/lib/public-api-staff";
 import { Check } from "../ui/icons";
 
 interface ServicesStepProps {
   services: readonly CatalogService[];
   selectedIds: readonly string[];
   onToggle: (id: string) => void;
+  /** Stylists at this location (empty unless clients may choose); used to show "from" prices. */
+  staff?: readonly CatalogStaff[];
 }
 
 /** Group by category, keeping first-seen order. A single unnamed group renders without a heading. */
@@ -20,7 +23,7 @@ export function groupByCategory(
   return [...groups.entries()].map(([title, list]) => ({ title: title || null, services: list }));
 }
 
-export function ServicesStep({ services, selectedIds, onToggle }: ServicesStepProps) {
+export function ServicesStep({ services, selectedIds, onToggle, staff = [] }: ServicesStepProps) {
   const groups = groupByCategory(services);
   let index = 0;
   return (
@@ -34,6 +37,8 @@ export function ServicesStep({ services, selectedIds, onToggle }: ServicesStepPr
           <div className="rk-options">
             {group.services.map((svc) => {
               const i = index++;
+              const range = serviceRange(staff, svc.id);
+              const varies = range !== null && range.minCents !== range.maxCents;
               return (
                 <label
                   key={svc.id}
@@ -58,7 +63,10 @@ export function ServicesStep({ services, selectedIds, onToggle }: ServicesStepPr
                       ) : null}
                     </span>
                     <span className="rk-option__facts">
-                      <span className="rk-option__price">{formatAud(svc.priceCents)}</span>
+                      <span className="rk-option__price">
+                        {varies ? "from " : ""}
+                        {formatAud(varies ? range.minCents : svc.priceCents)}
+                      </span>
                       {formatDuration(svc.durationMin)}
                     </span>
                   </span>

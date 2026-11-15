@@ -6,7 +6,7 @@ import { getDb } from "@/db/client";
 import { PageHeader } from "@/components/ui/page-header";
 import { listLocations, listServices, listStaff } from "@/server/admin-foundation/catalog";
 import { getAdminSettings } from "@/server/admin-foundation/settings-admin";
-import { requireOwner } from "@/server/auth";
+import { requireAccess } from "@/server/auth/access";
 import { ServiceForm } from "../../_components/service-form";
 
 export const metadata: Metadata = { title: "Edit service" };
@@ -20,7 +20,7 @@ export default function EditServicePage({ params }: { params: Promise<{ id: stri
 }
 
 async function EditServiceBody({ params }: { params: Promise<{ id: string }> }) {
-  await requireOwner();
+  await requireAccess("catalog.edit");
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();
 
@@ -54,11 +54,12 @@ async function EditServiceBody({ params }: { params: Promise<{ id: string }> }) 
           intakeQuestions: service.intakeQuestions,
           locationIds: service.locationIds,
           staff: service.staff,
+          levelPrices: service.levelPrices,
         }}
         locations={locations.map((l) => ({ id: l.id, name: l.name, active: l.active }))}
         staff={staff
           .filter((s) => s.active || service.staff.some((o) => o.staffId === s.id))
-          .map((s) => ({ id: s.id, name: s.name }))}
+          .map((s) => ({ id: s.id, name: s.name, level: s.level }))}
         defaultDepositPct={settings.depositPct}
         categories={categories}
       />

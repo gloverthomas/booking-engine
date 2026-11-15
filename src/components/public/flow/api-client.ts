@@ -15,6 +15,10 @@ export interface HoldRequest {
   locationId: string;
   serviceIds: string[];
   start: string;
+  /** The stylist: asked for by the client, or the one the chosen time is with. */
+  staffId?: string;
+  /** True only when the client picked this stylist themselves. */
+  staffRequested: boolean;
   client: {
     firstName: string;
     lastName: string;
@@ -38,6 +42,7 @@ export interface AvailabilityRequest {
   serviceIds: string[];
   fromDate: string;
   toDate: string;
+  staffId?: string;
 }
 
 const NETWORK_ERROR: ApiErrorBody = {
@@ -109,6 +114,7 @@ export function createApiClient(
         fromDate: req.fromDate,
         toDate: req.toDate,
       });
+      if (req.staffId) params.set("staffId", req.staffId);
       return call<AvailabilityData>(`/availability?${params.toString()}`);
     },
 

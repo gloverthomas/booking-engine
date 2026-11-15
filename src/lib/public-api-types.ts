@@ -27,6 +27,20 @@ export interface CatalogService {
   intakeQuestions: IntakeQuestion[];
 }
 
+/** What one stylist charges and takes for one service (priceFor with their override and level). */
+export interface StaffOffer {
+  priceCents: number;
+  durationMin: number;
+}
+
+/** A stylist a client may choose at a location, with their own price and time per service they offer. */
+export interface CatalogStaff {
+  id: string;
+  name: string;
+  /** Service id to that stylist's price and duration. Only services they offer here. */
+  offers: Record<string, StaffOffer>;
+}
+
 export interface CatalogLocation {
   id: string;
   name: string;
@@ -36,6 +50,8 @@ export interface CatalogLocation {
   postcode: string | null;
   arrivalNote: string | null;
   services: CatalogService[];
+  /** Stylists clients may choose here. Empty unless `chooseStaff` is on. */
+  staff: CatalogStaff[];
 }
 
 export interface CatalogPolicy {
@@ -52,6 +68,10 @@ export interface CatalogData {
   today: string;
   maxAdvanceDays: number;
   holdMinutes: number;
+  /** Show the "choose a stylist" step. */
+  chooseStaff: boolean;
+  /** Offer to join the waitlist when there are no times. */
+  waitlistEnabled: boolean;
   policy: CatalogPolicy;
   locations: CatalogLocation[];
 }
@@ -62,6 +82,12 @@ export interface SlotDto {
   end: string;
   /** Local label in the business zone, e.g. "2:30 pm". */
   label: string;
+  /** Who would do it. Set only when the client may choose a stylist. */
+  staffId?: string;
+  /** Total for that stylist. Set only when the client may choose a stylist. */
+  priceCents?: number;
+  /** Total time for that stylist, in minutes. Set only when the client may choose a stylist. */
+  durationMin?: number;
 }
 
 export interface AvailabilityDay {
@@ -136,6 +162,10 @@ export interface ManageBookingData {
     phone: string | null;
   };
   serviceIds: string[];
+  /** The stylist the booking is with. A reschedule must stay with them. */
+  staffId: string | null;
+  /** Shown to the client; null when the business does not offer a choice of stylist. */
+  staffName: string | null;
   businessName: string;
   timezone: string;
   now: string;

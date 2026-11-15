@@ -1,12 +1,14 @@
 import { vi } from "vitest";
 import type { PublicApiDeps, PublicBackend } from "@/lib/public-api-deps";
 import { createPublicLimiters } from "@/lib/public-api-rate-limit";
-import type { CatalogData } from "@/lib/public-api-types";
+import type { CatalogData, CatalogStaff } from "@/lib/public-api-types";
 import { parseSettings } from "@/server/settings";
 
 export const LOC = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 export const SVC_CUT = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 export const SVC_BEARD = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+export const STAFF_ALEX = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+export const STAFF_BEA = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 export const BOOKING_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 export const TOKEN = `${BOOKING_ID}.sig`;
 export const NOW = new Date("2026-11-14T00:00:00Z");
@@ -16,6 +18,8 @@ export const catalog: CatalogData = {
   today: "2026-11-14",
   maxAdvanceDays: 90,
   holdMinutes: 10,
+  chooseStaff: false,
+  waitlistEnabled: true,
   policy: {
     version: "1",
     text: "24 hours notice.",
@@ -54,8 +58,28 @@ export const catalog: CatalogData = {
           intakeQuestions: [{ id: "q2", label: "Allergies?", required: false }],
         },
       ],
+      staff: [],
     },
   ],
+};
+
+/** The same catalog with stylists on: Alex at the service price, Bea cheaper but slower on a cut. */
+const stylists: CatalogStaff[] = [
+  {
+    id: STAFF_ALEX,
+    name: "Alex",
+    offers: {
+      [SVC_CUT]: { priceCents: 9500, durationMin: 45 },
+      [SVC_BEARD]: { priceCents: 3000, durationMin: 15 },
+    },
+  },
+  { id: STAFF_BEA, name: "Bea", offers: { [SVC_CUT]: { priceCents: 7500, durationMin: 60 } } },
+];
+
+export const staffCatalog: CatalogData = {
+  ...catalog,
+  chooseStaff: true,
+  locations: catalog.locations.map((loc) => ({ ...loc, staff: stylists })),
 };
 
 export function makeBackend(overrides: Partial<PublicBackend> = {}): PublicBackend {
@@ -116,6 +140,9 @@ export function makeDeps(overrides: Partial<PublicApiDeps> = {}): PublicApiDeps 
       arrivalNote: "Arrive 5 minutes early",
       phone: "03 9000 0000",
       serviceIds: [SVC_CUT],
+      staffId: STAFF_ALEX,
+      staffName: "Alex",
+      staffRequested: false,
     }),
     verifyTurnstile: async () => ({ ok: true }),
     verifyManageToken: (token) => (token === TOKEN ? BOOKING_ID : null),

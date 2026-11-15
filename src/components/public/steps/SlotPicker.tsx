@@ -12,12 +12,17 @@ import {
 } from "@/lib/public-api-time";
 import type { ApiClient } from "../flow/api-client";
 import { WEEKDAY_LABELS, buildMonthGrid, canGoNextMonth, canGoPrevMonth } from "../flow/calendar";
+import { JoinWaitlistCta } from "../waitlist/JoinWaitlistCta";
 import { ChevronLeft, ChevronRight } from "../ui/icons";
 
 interface SlotPickerProps {
   api: ApiClient;
   locationId: string;
   serviceIds: readonly string[];
+  /** Only show this stylist's times (a chosen stylist, or the one a booking is with). */
+  staffId?: string;
+  /** Offer the waitlist when a day or the whole month has no times. Off for rescheduling. */
+  waitlistEnabled?: boolean;
   today: string;
   maxAdvanceDays: number;
   timezone: string;
@@ -40,7 +45,18 @@ const LOADING: MonthState = { status: "loading" };
  * changes with the selection (services, location) or after a lost slot to start fresh.
  */
 export function SlotPicker(props: SlotPickerProps) {
-  const { api, locationId, serviceIds, today, maxAdvanceDays, timezone, date, slot } = props;
+  const {
+    api,
+    locationId,
+    serviceIds,
+    staffId,
+    waitlistEnabled = false,
+    today,
+    maxAdvanceDays,
+    timezone,
+    date,
+    slot,
+  } = props;
   const maxDate = addDays(today, maxAdvanceDays);
   const [month, setMonth] = useState(() => monthStart(date ?? today));
   const [months, setMonths] = useState<Record<string, MonthState>>({});
@@ -53,6 +69,7 @@ export function SlotPicker(props: SlotPickerProps) {
       const result = await api.availability({
         locationId,
         serviceIds: [...serviceIds],
+        staffId,
         fromDate: target < today ? today : target,
         toDate: monthEnd(target),
       });
@@ -64,7 +81,7 @@ export function SlotPicker(props: SlotPickerProps) {
       }));
       if (!result.ok) requested.current.delete(target);
     },
-    [api, locationId, serviceIds, today],
+    [api, locationId, serviceIds, staffId, today],
   );
 
   useEffect(() => {
@@ -168,14 +185,29 @@ export function SlotPicker(props: SlotPickerProps) {
           ) : null}
 
           {noTimesThisMonth ? (
-            <p className="rk-cal__status" role="status">
-              No times left this month.{" "}
-              {canGoNextMonth(month, maxDate) ? (
-                <button type="button" className="rk-link-btn" onClick={() => goTo(nextMonthValue)}>
-                  Check next month
-                </button>
+            <>
+              <p className="rk-cal__status" role="status">
+                No times left this month.{" "}
+                {canGoNextMonth(month, maxDate) ? (
+                  <button
+                    type="button"
+                    className="rk-link-btn"
+                    onClick={() => goTo(nextMonthValue)}
+                  >
+                    Check next month
+                  </button>
+                ) : null}
+              </p>
+              {waitlistEnabled ? (
+                <div className="rk-waitlist">
+                  <JoinWaitlistCta
+                    locationId={locationId}
+                    serviceIds={[...serviceIds]}
+                    staffId={staffId}
+                  />
+                </div>
               ) : null}
-            </p>
+            </>
           ) : null}
 
           <div className="rk-cal__legend">
@@ -188,9 +220,23 @@ export function SlotPicker(props: SlotPickerProps) {
         {!date ? (
           <p className="rk-times__empty">Choose a day to see available times.</p>
         ) : !dayData ? (
-          <p className="rk-times__empty">
-            {current.status === "loading" ? "Loading times…" : "No times on this day. Try another."}
-          </p>
+          <div className="rk-times__empty">
+            <p>
+              {current.status === "loading"
+                ? "Loading times…"
+                : "No times on this day. Try another."}
+            </p>
+            {current.status === "ready" && waitlistEnabled && !noTimesThisMonth ? (
+              <div className="rk-waitlist">
+                <JoinWaitlistCta
+                  locationId={locationId}
+                  serviceIds={[...serviceIds]}
+                  date={date}
+                  staffId={staffId}
+                />
+              </div>
+            ) : null}
+          </div>
         ) : (
           <>
             <h3 className="rk-times__heading">{formatDayHeading(date)}</h3>

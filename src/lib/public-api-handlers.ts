@@ -11,6 +11,7 @@ import type { PublicApiDeps } from "./public-api-deps";
 import type { RateLimiter } from "./public-api-rate-limit";
 import { availabilityQuerySchema, holdBodySchema, type HoldBody } from "./public-api-schemas";
 import { groupSlotsByLocalDay } from "./public-api-slots";
+import { quoteFor, slotExtras } from "./public-api-staff";
 import { addDays, compareDates, daysBetween } from "./public-api-time";
 
 const READ_CACHE = { "Cache-Control": "public, max-age=30, stale-while-revalidate=60" };
@@ -86,7 +87,11 @@ export function handleAvailability(deps: PublicApiDeps, request: Request): Promi
       const now = deps.now();
       const ctx = await deps.loadBusiness();
       const catalog = await deps.loadCatalog(ctx, now);
-      resolveSelection(catalog.locations, query.locationId, query.serviceIds);
+      const { location, services } = resolveSelection(
+        catalog.locations,
+        query.locationId,
+        query.serviceIds,
+      );
 
       // Clamp to the bookable horizon instead of failing: the month grid asks for whole months.
       const earliest = catalog.today;
@@ -110,7 +115,15 @@ export function handleAvailability(deps: PublicApiDeps, request: Request): Promi
         toDate,
         now,
       });
-      return ok<AvailabilityData>({ ...empty, days: groupSlotsByLocalDay(slots, ctx.timezone) });
+      // With stylists on, each slot says who it is with and that person's price ("anyone" shows the
+      // assigned stylist's price). With it off the response is exactly what it always was.
+      const annotate = ctx.settings.chooseStaff
+        ? (slot: { staffId: string }) => slotExtras(slot, location.staff, services)
+        : undefined;
+      return ok<AvailabilityData>({
+        ...empty,
+        days: groupSlotsByLocalDay(slots, ctx.timezone, annotate),
+      });
     },
     deps.log,
     "availability",
@@ -200,7 +213,11 @@ export function handleCreateHold(deps: PublicApiDeps, request: Request): Promise
       await checkHuman(deps, request, body.turnstileToken);
 
       const catalog = await deps.loadCatalog(ctx, now);
-      const { services } = resolveSelection(catalog.locations, body.locationId, body.serviceIds);
+      const { location, services } = resolveSelection(
+        catalog.locations,
+        body.locationId,
+        body.serviceIds,
+      );
       const intakeErrors = requiredIntakeErrors(services, body.intakeAnswers);
       if (Object.keys(intakeErrors).length > 0) {
         throw new ApiError(422, "validation_failed", Object.values(intakeErrors)[0], intakeErrors);
@@ -211,9 +228,24 @@ export function handleCreateHold(deps: PublicApiDeps, request: Request): Promise
         throw new ApiError(409, "slot_taken", "That time has passed. Please pick another time.");
       }
 
+      // A stylist is only honoured when clients may choose one, and only if they can do everything.
+      let staffId: string | undefined;
+      if (ctx.settings.chooseStaff && body.staffId) {
+        const person = location.staff.find((p) => p.id === body.staffId);
+        if (!person || !quoteFor(person, services)) {
+          throw new ApiError(
+            422,
+            "invalid_selection",
+            "That stylist isn't available for the services you chose.",
+          );
+        }
+        staffId = person.id;
+      }
+
       const input: CreateHoldInput = {
         locationId: body.locationId,
-        staffId: body.staffId,
+        staffId,
+        staffRequested: staffId !== undefined && body.staffRequested,
         serviceIds: services.map((s) => s.id),
         start,
         client: body.client,

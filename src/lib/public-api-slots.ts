@@ -5,9 +5,13 @@ import type { AvailabilityDay, SlotDto } from "./public-api-types";
 /** Local hour at which "morning" ends and "afternoon" (including evening) begins. */
 export const AFTERNOON_STARTS_HOUR = 12;
 
-function toDto(slot: TimeSlot, zone: string): SlotDto {
+/** Optional extras added to each slot, e.g. who it is with and their price. */
+export type SlotAnnotator<T extends TimeSlot> = (slot: T) => Partial<SlotDto>;
+
+function toDto(slot: TimeSlot, zone: string, extra: Partial<SlotDto>): SlotDto {
   const local = DateTime.fromJSDate(slot.start, { zone });
   return {
+    ...extra,
     start: slot.start.toISOString(),
     end: slot.end.toISOString(),
     label: local.toFormat("h:mm a").toLowerCase(),
@@ -19,7 +23,11 @@ function toDto(slot: TimeSlot, zone: string): SlotDto {
  * times (several stylists free at once) collapse to one entry because the client picks a time,
  * not a person. Output is sorted and only contains days that have slots.
  */
-export function groupSlotsByLocalDay(slots: readonly TimeSlot[], zone: string): AvailabilityDay[] {
+export function groupSlotsByLocalDay<T extends TimeSlot>(
+  slots: readonly T[],
+  zone: string,
+  annotate?: SlotAnnotator<T>,
+): AvailabilityDay[] {
   const seen = new Set<number>();
   const days = new Map<string, { morning: SlotDto[]; afternoon: SlotDto[] }>();
 
@@ -33,7 +41,7 @@ export function groupSlotsByLocalDay(slots: readonly TimeSlot[], zone: string): 
     const date = local.toFormat("yyyy-MM-dd");
     const bucket = days.get(date) ?? { morning: [], afternoon: [] };
     (local.hour < AFTERNOON_STARTS_HOUR ? bucket.morning : bucket.afternoon).push(
-      toDto(slot, zone),
+      toDto(slot, zone, annotate?.(slot) ?? {}),
     );
     days.set(date, bucket);
   }

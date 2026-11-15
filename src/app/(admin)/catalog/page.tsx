@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { listLocations, listServices } from "@/server/admin-foundation/catalog";
 import { formatCents } from "@/server/admin-foundation/money";
-import { requireOwner } from "@/server/auth";
+import { requireAccess } from "@/server/auth/access";
 import { CatalogNav } from "./_components/catalog-nav";
 
 export const metadata: Metadata = { title: "Catalog" };
@@ -23,7 +23,7 @@ export default function CatalogPage() {
 }
 
 async function CatalogBody() {
-  await requireOwner();
+  await requireAccess("catalog.edit");
   const db = getDb();
   const [services, locations] = await Promise.all([listServices(db), listLocations(db)]);
   const locationName = new Map(locations.map((l) => [l.id, l.name]));
