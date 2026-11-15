@@ -2,11 +2,7 @@ import { and, asc, between, eq, inArray } from "drizzle-orm";
 import { DateTime } from "luxon";
 import { availabilityRule, location, rosterException, staff } from "@/db/schema";
 import type { MinuteRange } from "../admin-foundation/week";
-import {
-  windowsForDate,
-  type DayException,
-  type WeeklyRule,
-} from "../availability/engine";
+import { windowsForDate, type DayException, type WeeklyRule } from "../availability/engine";
 import type { Db } from "../db-types";
 
 export interface RosterDayEntry {

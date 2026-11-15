@@ -16,7 +16,11 @@ export function formatMinuteRange(range: { startMinute: number; endMinute: numbe
 export function formatDayLabel(date: string): string {
   const [year, month, day] = date.split("-").map(Number);
   const utc = new Date(Date.UTC(year, month - 1, day));
-  const weekday = new Intl.DateTimeFormat("en-AU", { weekday: "short", timeZone: "UTC" }).format(utc);
-  const monthName = new Intl.DateTimeFormat("en-AU", { month: "short", timeZone: "UTC" }).format(utc);
+  const weekday = new Intl.DateTimeFormat("en-AU", { weekday: "short", timeZone: "UTC" }).format(
+    utc,
+  );
+  const monthName = new Intl.DateTimeFormat("en-AU", { month: "short", timeZone: "UTC" }).format(
+    utc,
+  );
   return `${weekday} ${day} ${monthName}`;
 }

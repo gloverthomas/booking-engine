@@ -70,7 +70,9 @@ async function clearScope(
       and(
         eq(rosterException.staffId, staffId),
         eq(rosterException.date, date),
-        locationId ? eq(rosterException.locationId, locationId) : isNull(rosterException.locationId),
+        locationId
+          ? eq(rosterException.locationId, locationId)
+          : isNull(rosterException.locationId),
       ),
     )
     .returning({ id: rosterException.id });

@@ -3,12 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { auditLog, rosterException } from "@/db/schema";
 import { getAvailableSlots } from "@/server/availability";
 import { AdminError } from "@/server/admin-foundation/errors";
-import {
-  listExceptions,
-  removeException,
-  setCustomHours,
-  setDayOff,
-} from "@/server/roster";
+import { listExceptions, removeException, setCustomHours, setDayOff } from "@/server/roster";
 import { MONDAY, NOW, addBooking, local, localTime } from "../availability/setup";
 import { TODAY, addLocation, addStylist, createWorld, type World } from "./setup";
 
@@ -181,9 +176,9 @@ describe("setCustomHours", () => {
         ],
       }),
     ).rejects.toMatchObject({ code: "invalid_hours" });
-    await expect(custom({ ranges: [{ startMinute: 700, endMinute: 600 }] })).rejects.toMatchObject(
-      { code: "invalid_hours" },
-    );
+    await expect(custom({ ranges: [{ startMinute: 700, endMinute: 600 }] })).rejects.toMatchObject({
+      code: "invalid_hours",
+    });
     expect(await w.db.select().from(rosterException)).toHaveLength(0);
   });
 

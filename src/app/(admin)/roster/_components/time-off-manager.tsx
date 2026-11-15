@@ -72,58 +72,58 @@ export function TimeOffManager({
       />
       <CardBody className="flex flex-col gap-6">
         {canEdit ? (
-        <form onSubmit={onSubmit} noValidate className="grid gap-4 sm:grid-cols-2">
-          {error ? (
-            <Alert tone="danger" className="sm:col-span-2">
-              {error}
-            </Alert>
-          ) : null}
-          {staff.length > 1 ? (
-            <Select
-              label="Stylist"
-              value={staffId}
-              onChange={(e) => setStaffId(e.target.value)}
-              error={fieldErrors.staffId}
+          <form onSubmit={onSubmit} noValidate className="grid gap-4 sm:grid-cols-2">
+            {error ? (
+              <Alert tone="danger" className="sm:col-span-2">
+                {error}
+              </Alert>
+            ) : null}
+            {staff.length > 1 ? (
+              <Select
+                label="Stylist"
+                value={staffId}
+                onChange={(e) => setStaffId(e.target.value)}
+                error={fieldErrors.staffId}
+                wrapperClassName="sm:col-span-2"
+              >
+                {staff.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            ) : null}
+            <Input
+              label="From"
+              type="datetime-local"
+              required
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+              error={fieldErrors.start}
+            />
+            <Input
+              label="To"
+              type="datetime-local"
+              required
+              value={end}
+              onChange={(e) => setEnd(e.target.value)}
+              error={fieldErrors.end}
+            />
+            <Input
+              label="Reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              error={fieldErrors.reason}
+              placeholder="Holiday, dentist, training…"
+              hint="Only you see this."
               wrapperClassName="sm:col-span-2"
-            >
-              {staff.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
-          ) : null}
-          <Input
-            label="From"
-            type="datetime-local"
-            required
-            value={start}
-            onChange={(e) => setStart(e.target.value)}
-            error={fieldErrors.start}
-          />
-          <Input
-            label="To"
-            type="datetime-local"
-            required
-            value={end}
-            onChange={(e) => setEnd(e.target.value)}
-            error={fieldErrors.end}
-          />
-          <Input
-            label="Reason"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            error={fieldErrors.reason}
-            placeholder="Holiday, dentist, training…"
-            hint="Only you see this."
-            wrapperClassName="sm:col-span-2"
-          />
-          <div className="sm:col-span-2">
-            <Button type="submit" loading={pending}>
-              Block this time
-            </Button>
-          </div>
-        </form>
+            />
+            <div className="sm:col-span-2">
+              <Button type="submit" loading={pending}>
+                Block this time
+              </Button>
+            </div>
+          </form>
         ) : null}
 
         <div>
