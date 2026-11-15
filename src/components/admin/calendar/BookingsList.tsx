@@ -26,6 +26,8 @@ export function BookingsList(props: {
   q: string;
   timezone: string;
   limit: number;
+  /** Name the stylist on each row (roles that see everyone's bookings). */
+  showStylist?: boolean;
 }) {
   return (
     <ToastProvider>
@@ -40,12 +42,14 @@ function BookingsScreen({
   q,
   timezone,
   limit,
+  showStylist = false,
 }: {
   rows: BookingListRow[];
   filter: BookingListFilter;
   q: string;
   timezone: string;
   limit: number;
+  showStylist?: boolean;
 }) {
   const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -63,7 +67,7 @@ function BookingsScreen({
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-3 md:p-6">
-      <h1 className="text-2xl font-semibold">Bookings</h1>
+      <h1 className="text-2xl font-semibold">{showStylist ? "Bookings" : "My bookings"}</h1>
 
       <nav aria-label="Booking filter" className="flex gap-2">
         {TABS.map((tab) => (
@@ -124,6 +128,16 @@ function BookingsScreen({
                         <span className="block truncate text-sm text-stone-600">
                           {row.services.join(", ") || "No services"} · {row.locationName}
                         </span>
+                        {showStylist ? (
+                          <span className="flex items-center gap-1.5 truncate text-xs text-stone-600">
+                            <span
+                              aria-hidden
+                              className="size-2.5 shrink-0 rounded-full"
+                              style={{ backgroundColor: row.staffColour }}
+                            />
+                            {row.staffName}
+                          </span>
+                        ) : null}
                       </span>
                       <span className="flex shrink-0 flex-col items-end gap-1">
                         <span className="text-sm font-medium">{formatMoney(row.totalCents)}</span>

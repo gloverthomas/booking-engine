@@ -9,7 +9,10 @@
 export type FilterMode = "single" | "multi";
 
 /** Drop ids that are not selectable, and collapse "everyone ticked" back to the empty (= all) list. */
-export function normaliseSelection(selected: readonly string[], allIds: readonly string[]): string[] {
+export function normaliseSelection(
+  selected: readonly string[],
+  allIds: readonly string[],
+): string[] {
   const known = new Set(allIds);
   const kept = [...new Set(selected)].filter((id) => known.has(id));
   return kept.length === allIds.length ? [] : kept;
