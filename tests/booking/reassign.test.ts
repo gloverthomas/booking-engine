@@ -329,15 +329,13 @@ describe("reassignBooking: roster", () => {
   test("an appointment that ends after the working day is refused", async () => {
     // Staff may enter a booking that runs past 17:00 (it could not be booked online).
     const late = await addBooking(w.db, w, local("2026-11-02T16:30"), local("2026-11-02T17:15"));
-    await w.db
-      .insert(bookingService)
-      .values({
-        bookingId: late.id,
-        serviceId: w.haircutId,
-        name: "Haircut",
-        durationMin: 45,
-        priceCents: 9500,
-      });
+    await w.db.insert(bookingService).values({
+      bookingId: late.id,
+      serviceId: w.haircutId,
+      name: "Haircut",
+      durationMin: 45,
+      priceCents: 9500,
+    });
     await expect(reassign(late.id)).rejects.toBeInstanceOf(NotRosteredError);
   });
 });
