@@ -117,7 +117,11 @@ const builders: Record<ReportTableId, Builder> = {
       staffId,
     });
     const groupHeader =
-      params.groupBy === "service" ? "Service" : params.groupBy === "staff" ? "Stylist" : "Location";
+      params.groupBy === "service"
+        ? "Service"
+        : params.groupBy === "staff"
+          ? "Stylist"
+          : "Location";
     const columns: ReportTable["columns"] = [
       { key: "period", header: periodHeader(params.granularity) },
       ...(params.groupBy === "none" ? [] : [{ key: "group", header: groupHeader } as const]),
@@ -330,7 +334,11 @@ const builders: Record<ReportTableId, Builder> = {
 };
 
 /** Tables about every client or every balance: not split by stylist, so only for roles that see everyone. */
-const BUSINESS_WIDE: ReadonlySet<ReportTableId> = new Set(["top-clients", "lapsed-clients", "outstanding"]);
+const BUSINESS_WIDE: ReadonlySet<ReportTableId> = new Set([
+  "top-clients",
+  "lapsed-clients",
+  "outstanding",
+]);
 
 export function isBusinessWideTable(id: ReportTableId): boolean {
   return BUSINESS_WIDE.has(id);

@@ -1,6 +1,13 @@
 import { and, between, eq, gte, lt, sql } from "drizzle-orm";
 import { DateTime } from "luxon";
-import { availabilityRule, booking, location, rosterException, staff, timeBlock } from "@/db/schema";
+import {
+  availabilityRule,
+  booking,
+  location,
+  rosterException,
+  staff,
+  timeBlock,
+} from "@/db/schema";
 import type { Db } from "../db-types";
 import { rosterIntervalsForDay } from "../timesheets/rostered";
 import { eachLocalDate, resolveRange, type ResolvedRange } from "./range";
@@ -158,7 +165,12 @@ async function openHours(db: Db, range: ResolvedRange, staffId?: string): Promis
   for (const id of staffIds) {
     const own = { rules: rulesByStaff.get(id) ?? [], exceptions: exceptionsByStaff.get(id) ?? [] };
     for (const date of dates) {
-      for (const interval of rosterIntervalsForDay(own.rules, own.exceptions, date, range.timezone)) {
+      for (const interval of rosterIntervalsForDay(
+        own.rules,
+        own.exceptions,
+        date,
+        range.timezone,
+      )) {
         const open = Math.max(
           0,
           interval.end - interval.start - overlapMs(interval, blocksByStaff.get(id) ?? []),

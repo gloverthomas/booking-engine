@@ -26,12 +26,14 @@ export function reportScopeFor(role: StaffRole, staffId: string | null): ReportS
  * whatever was requested; for everyone else the requested id (if any) is just a filter.
  */
 export function scopedStaffId(scope: ReportScope, requested?: string): string | undefined {
-  if (scope.kind === "none") throw new ReportAccessError("No staff profile is linked to your login.");
+  if (scope.kind === "none")
+    throw new ReportAccessError("No staff profile is linked to your login.");
   if (scope.kind === "own") return scope.staffId;
   return requested;
 }
 
 /** Business-wide tables (all clients, all balances) are for roles that see everyone. */
 export function requireAllScope(scope: ReportScope): void {
-  if (scope.kind !== "all") throw new ReportAccessError("That report is for managers and the owner.");
+  if (scope.kind !== "all")
+    throw new ReportAccessError("That report is for managers and the owner.");
 }
