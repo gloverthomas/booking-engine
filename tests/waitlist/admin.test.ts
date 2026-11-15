@@ -33,7 +33,11 @@ describe("listWaitlist", () => {
       staffName: null,
       status: "offered",
     });
-    expect(rows[0].offers[0]).toMatchObject({ status: "sent", staffName: "Ryan", offeredBy: "auto" });
+    expect(rows[0].offers[0]).toMatchObject({
+      status: "sent",
+      staffName: "Ryan",
+      offeredBy: "auto",
+    });
     expect(rows[1].weekdays).toEqual([1, 3]);
   });
 

@@ -197,6 +197,8 @@ export async function listOfferableSlots(
       });
     }
   }
-  slots.sort((a, b) => a.start.getTime() - b.start.getTime() || a.staffName.localeCompare(b.staffName));
+  slots.sort(
+    (a, b) => a.start.getTime() - b.start.getTime() || a.staffName.localeCompare(b.staffName),
+  );
   return { entry: summary, timezone: context.timezone, slots: slots.slice(0, MAX_SLOTS) };
 }
