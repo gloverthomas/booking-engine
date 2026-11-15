@@ -23,6 +23,24 @@ export interface WeeklyRule {
   validTo: string | null;
 }
 
+/**
+ * A day-specific change to a stylist's weekly roster, already narrowed to the location being searched
+ * (the loader keeps exceptions for that location and those with no location, which apply everywhere).
+ * `off` removes the day; `custom` replaces the day's weekly rules with [startMinute, endMinute).
+ */
+export interface DayException {
+  /** Local date, YYYY-MM-DD. */
+  date: string;
+  kind: "off" | "custom";
+  startMinute: number | null;
+  endMinute: number | null;
+}
+
+export interface MinuteWindow {
+  startMinute: number;
+  endMinute: number;
+}
+
 export interface Candidate {
   staffId: string;
   /** Total length of all selected services for this staff member. */
@@ -30,6 +48,8 @@ export interface Candidate {
   /** Padding after the appointment (the last service's buffer). Occupies the stylist, not the client. */
   bufferMin: number;
   rules: WeeklyRule[];
+  /** Roster exceptions for the searched location. Omitted = none. */
+  exceptions?: DayException[];
   /** Time blocks plus bookings that already occupy this staff member. */
   busy: Interval[];
 }
@@ -85,6 +105,56 @@ function ruleApplies(rule: WeeklyRule, weekday: number, isoDate: string): boolea
   return true;
 }
 
+/**
+ * The working windows (local minutes) for one local date: the weekly rules, unless a roster exception
+ * overrides the day. Any `off` exception wins (the day is closed); otherwise `custom` exceptions
+ * REPLACE the weekly rules for that date (several customs on one date are all kept).
+ */
+export function windowsForDate(
+  rules: readonly WeeklyRule[],
+  exceptions: readonly DayException[],
+  weekday: number,
+  isoDate: string,
+): MinuteWindow[] {
+  const today = exceptions.filter((e) => e.date === isoDate);
+  if (today.some((e) => e.kind === "off")) return [];
+
+  const customs = today.flatMap((e) =>
+    e.kind === "custom" &&
+    e.startMinute !== null &&
+    e.endMinute !== null &&
+    e.startMinute < e.endMinute
+      ? [{ startMinute: e.startMinute, endMinute: e.endMinute }]
+      : [],
+  );
+  if (customs.length > 0) return customs;
+  if (today.some((e) => e.kind === "custom")) return []; // malformed custom hours: closed, never open by accident
+
+  return rules
+    .filter((rule) => ruleApplies(rule, weekday, isoDate))
+    .map((rule) => ({ startMinute: rule.startMinute, endMinute: rule.endMinute }));
+}
+
+/**
+ * True when `interval` (start inclusive, end inclusive) sits entirely inside one working window of the
+ * local day it starts on, after roster exceptions. Used to check that a stylist is rostered for a
+ * booking that is moved onto them.
+ */
+export function rosterCovers(
+  rules: readonly WeeklyRule[],
+  exceptions: readonly DayException[],
+  timezone: string,
+  interval: Interval,
+): boolean {
+  const day = zoned(interval.start, timezone).startOf("day");
+  const windows = windowsForDate(rules, exceptions, day.weekday % 7, day.toISODate() as string);
+  return windows.some(
+    (window) =>
+      wallClockInstant(day, window.startMinute).toMillis() <= interval.start.getTime() &&
+      interval.end.getTime() <= wallClockInstant(day, window.endMinute).toMillis(),
+  );
+}
+
 /** Clamp the requested range to [today, today + maxAdvanceDays]. Returns null when nothing is left. */
 function clampRange(input: EngineInput): { from: DateTime; to: DateTime } | null {
   const today = zoned(input.now, input.timezone).startOf("day");
@@ -113,10 +183,14 @@ export function computeSlots(input: EngineInput): RawSlot[] {
       const occupiedMs = (candidate.durationMin + candidate.bufferMin) * MINUTE_MS;
       const seen = new Set<number>();
 
-      for (const rule of candidate.rules) {
-        if (!ruleApplies(rule, weekday, isoDate)) continue;
-        const windowStart = wallClockInstant(day, rule.startMinute).toMillis();
-        const windowEnd = wallClockInstant(day, rule.endMinute).toMillis();
+      for (const window of windowsForDate(
+        candidate.rules,
+        candidate.exceptions ?? [],
+        weekday,
+        isoDate,
+      )) {
+        const windowStart = wallClockInstant(day, window.startMinute).toMillis();
+        const windowEnd = wallClockInstant(day, window.endMinute).toMillis();
 
         for (let t = windowStart; t + durationMs <= windowEnd; t += stepMs) {
           if (seen.has(t) || t < earliest) continue;

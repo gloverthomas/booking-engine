@@ -28,7 +28,6 @@ export default defineConfig({
         "src/server/db-types.ts",
         // Stubs: the owning workstream deletes its line when it replaces the stub with real code.
         "src/server/waitlist/index.ts",
-        "src/server/booking/reassign.ts",
         "src/server/notifications/waitlist-notifications.ts",
         "src/server/auth/access.ts",
         "src/worker/handlers/waitlist.ts",

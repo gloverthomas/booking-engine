@@ -3,7 +3,7 @@ import { booking, bookingService } from "@/db/schema";
 import { getBusinessContext } from "../availability/context";
 import { localDate } from "../availability/engine";
 import { resolveServices } from "../availability/loader";
-import { searchAvailability } from "../availability";
+import { pickSlot, searchAvailability } from "../availability";
 import { recordAudit } from "../audit";
 import { findOrCreateClient } from "../clients";
 import type { CreateHoldInput, HoldResult } from "../contracts";
@@ -28,6 +28,7 @@ const holdInput = z.object({
   staffId: z.uuid().optional(),
   serviceIds: z.array(z.uuid()).min(1, "Select at least one service"),
   start: z.date().refine((d) => !Number.isNaN(d.getTime()), "Invalid start time"),
+  staffRequested: z.boolean().optional(),
   comments: z.string().max(2000).optional(),
   intakeAnswers: z.record(z.string(), z.string().max(2000)).optional(),
   policyVersion: z.string().min(1, "The cancellation policy must be accepted"),
@@ -82,7 +83,7 @@ export async function createHold(
         toDate: day,
         now,
       });
-      const slot = search.slots.find((s) => s.start.getTime() === input.start.getTime());
+      const slot = pickSlot(search, input.start, input.staffId);
       const plan = slot ? search.plans.get(slot.staffId) : undefined;
       if (!slot || !plan) throw new SlotTakenError();
 
@@ -106,6 +107,7 @@ export async function createHold(
           totalCents: plan.totalCents,
           depositCents,
           holdExpiresAt,
+          staffRequested: input.staffRequested ?? false,
           bookedForOther: input.bookedForOther ?? false,
           comments: input.comments,
           intakeAnswers: input.intakeAnswers ?? {},

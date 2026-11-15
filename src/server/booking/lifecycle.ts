@@ -11,7 +11,8 @@ import { loadBookingForUpdate } from "./shared";
 
 /**
  * Mark pending bookings whose hold has lapsed as expired (frees the slot for the exclusion
- * constraint). Returns the expired booking ids.
+ * constraint), emitting booking.expired for each. Call it with a transaction so the status change,
+ * the event and the audit row commit together. Returns the expired booking ids.
  */
 export async function expireLapsedHolds(db: Db, now: Date): Promise<string[]> {
   const expired = await db
@@ -26,6 +27,8 @@ export async function expireLapsedHolds(db: Db, now: Date): Promise<string[]> {
     )
     .returning({ id: booking.id });
   for (const { id } of expired) {
+    // Same transaction as the status change: the waitlist offers the freed slot once this commits.
+    await emitDomainEvent(db, { type: "booking.expired", bookingId: id });
     await recordAudit(db, {
       actor: "system",
       action: "booking.expire",

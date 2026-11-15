@@ -18,6 +18,7 @@ export {
   DomainError,
   HoldExpiredError,
   NotFoundError,
+  NotRosteredError,
   PolicyVersionError,
   SlotTakenError,
   ValidationError,

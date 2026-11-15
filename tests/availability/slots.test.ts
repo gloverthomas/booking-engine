@@ -325,7 +325,7 @@ describe("getAvailableSlots: staff selection", () => {
     expect(await times()).toEqual([]);
   });
 
-  test("first available: one slot per start time, assigned to the first free staff member", async () => {
+  test("first available: one slot per start time, assigned to the free staff member with fewest bookings", async () => {
     const zed = await addStaff(w.db, w.businessId, "Zed");
     await offer(w.db, w.haircutId, w.locationId, zed.id);
     await openEveryDay(w.db, zed.id, w.locationId);
@@ -335,8 +335,8 @@ describe("getAvailableSlots: staff selection", () => {
     const slots = await getAvailableSlots(w.db, query({ staffId: undefined }));
     expect(new Set(slots.map((s) => s.start.getTime())).size).toBe(slots.length); // deduplicated
     expect(slots.find((s) => localTime(s.start) === "09:00")?.staffId).toBe(zed.id);
-    // "Ryan" sorts before "Zed", so Ryan wins once he is free
-    expect(slots.find((s) => localTime(s.start) === "10:00")?.staffId).toBe(w.staffId);
+    // Ryan has one booking that day and Zed none, so Zed also wins where both are free
+    expect(slots.find((s) => localTime(s.start) === "10:00")?.staffId).toBe(zed.id);
   });
 
   test("a specific staff member only gets their own availability", async () => {
