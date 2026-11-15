@@ -49,11 +49,24 @@ web admin uses, so permissions, audit and rules are identical. Customer-facing e
 | `GET /clients?q=`                                                      | `clients.view`            | Search                                                                                        |
 | `GET /clients/:id`                                                     | `clients.view`            | Profile and history                                                                           |
 
+## Tap to Pay, end to end
+
+1. App: `GET /payments/terminal` for the Location, `POST /payments/terminal/connection-token` for the SDK.
+2. App: `POST /bookings/:id/card-payment`. The server creates a card-present PaymentIntent for exactly what is
+   owing and a **pending `stripe_in_person` balance row**, so the webhook never has to guess what the intent is.
+3. App: the Terminal SDK collects and confirms the payment with the returned `clientSecret`.
+4. Stripe's `payment_intent.succeeded` webhook marks the payment succeeded, emits `payment.succeeded` (Xero
+   picks it up) and, if the balance is now settled, completes the appointment. This happens server side, so a
+   dropped connection after the tap cannot leave it open.
+5. App: polls `GET /bookings/:id/card-payment` to show the result.
+
+Needs `STRIPE_TERMINAL_LOCATION_ID` (a Stripe Terminal Location for the salon address) and Stripe in-person
+payments enabled on the account. Tipping is not offered: Stripe lists it as unsupported on Tap to Pay.
+
 ## Not built yet
 
-Tap to Pay (Terminal connection token, card-present checkout, webhook), push device registration and
-delivery, roster and timesheet endpoints, waitlist, and a generated OpenAPI document. See the phases in
-`docs/MOBILE.md`.
+Push device registration and delivery, roster and timesheet endpoints, waitlist, and a generated OpenAPI
+document. See the phases in `docs/MOBILE.md`.
 
 ## Sign-in and the iOS client id
 

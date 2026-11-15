@@ -17,6 +17,8 @@ export interface FakeStripe extends StripeLike {
     intents: Array<{ params: IntentParams; key: string }>;
     refunds: Array<{ params: { payment_intent: string; amount: number }; key: string }>;
     retrieved: string[];
+    cancelled: string[];
+    connectionTokens: Array<{ location?: string }>;
   };
   /** Next paymentIntents.create rejects with this error (then clears). */
   failNextIntent: unknown;
@@ -41,7 +43,14 @@ export function createFakeStripe(): FakeStripe {
   let sequence = 0;
 
   const fake: FakeStripe = {
-    calls: { customers: [], intents: [], refunds: [], retrieved: [] },
+    calls: {
+      customers: [],
+      intents: [],
+      refunds: [],
+      retrieved: [],
+      cancelled: [],
+      connectionTokens: [],
+    },
     failNextIntent: null,
     nextIntentStatus: "requires_payment_method",
     nextRefundStatus: "succeeded",
@@ -79,6 +88,14 @@ export function createFakeStripe(): FakeStripe {
         intents.set(id, created);
         return created;
       },
+      async cancel(id) {
+        fake.calls.cancelled.push(id);
+        const found = intents.get(id);
+        if (!found) throw new Error(`No such intent ${id}`);
+        const cancelled = { ...found, status: "canceled" };
+        intents.set(id, cancelled);
+        return cancelled;
+      },
       async retrieve(id) {
         fake.calls.retrieved.push(id);
         const found = intents.get(id);
@@ -100,6 +117,14 @@ export function createFakeStripe(): FakeStripe {
         const created = { id: `re_${++sequence}`, status: fake.nextRefundStatus };
         refundsByKey.set(options.idempotencyKey, created);
         return created;
+      },
+    },
+    terminal: {
+      connectionTokens: {
+        async create(params) {
+          fake.calls.connectionTokens.push(params);
+          return { secret: `pst_test_${++sequence}` };
+        },
       },
     },
     webhooks: {

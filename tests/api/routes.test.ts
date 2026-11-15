@@ -10,6 +10,12 @@ interface Viewer {
   staffId: string | null;
   userId: string;
 }
+const pay = vi.hoisted(() => ({
+  start: vi.fn(),
+  status: vi.fn(),
+  token: vi.fn(),
+  location: vi.fn(),
+}));
 const state = vi.hoisted(() => ({
   viewer: null as null | { role: string; staffId: string | null; userId: string },
   db: null as unknown,
@@ -20,6 +26,12 @@ const signedOut = () =>
   Object.assign(new Error("NEXT_REDIRECT"), { digest: "NEXT_REDIRECT;replace;/login" });
 
 vi.mock("next/server", () => ({ connection: async () => undefined }));
+vi.mock("@/server/payments/terminal", () => ({
+  startInPersonPayment: (...a: unknown[]) => pay.start(...a),
+  inPersonPaymentStatus: (...a: unknown[]) => pay.status(...a),
+  createConnectionToken: (...a: unknown[]) => pay.token(...a),
+  terminalLocationId: () => pay.location(),
+}));
 vi.mock("@/db/client", () => ({ getDb: () => state.db }));
 vi.mock("@/server/auth", () => ({
   requireAccessSession: async () => {
@@ -63,6 +75,13 @@ import { POST as reschedule } from "@/app/api/v1/bookings/[id]/reschedule/route"
 import { GET as searchClients } from "@/app/api/v1/clients/route";
 import { GET as getClient } from "@/app/api/v1/clients/[id]/route";
 import { GET as getMe } from "@/app/api/v1/me/route";
+import { GET as terminalConfig } from "@/app/api/v1/payments/terminal/route";
+import { POST as connectionToken } from "@/app/api/v1/payments/terminal/connection-token/route";
+import {
+  GET as cardStatus,
+  POST as cardStart,
+} from "@/app/api/v1/bookings/[id]/card-payment/route";
+import { PaymentError } from "@/server/payments/stripe";
 import { GET as getResources } from "@/app/api/v1/resources/route";
 import { GET as getAvailability } from "@/app/api/v1/availability/route";
 import { addBooking, addStaff, createWorld, type World } from "../availability/setup";
@@ -413,5 +432,95 @@ describe("booking actions", () => {
     const me = (await json(await getMe())).data;
     expect(me.permissions).toContain("booking.create");
     expect(me.permissions).not.toContain("data.import");
+  });
+});
+
+describe("Tap to Pay", () => {
+  const started = {
+    paymentId: "11111111-1111-4111-8111-111111111111",
+    paymentIntentId: "pi_1",
+    clientSecret: "pi_1_secret",
+    amountCents: 4750,
+  };
+  beforeEach(() => {
+    pay.start.mockReset().mockResolvedValue(started);
+    pay.status
+      .mockReset()
+      .mockResolvedValue({ status: "pending", bookingStatus: "confirmed", balanceDueCents: 4750 });
+    pay.token.mockReset().mockResolvedValue({ secret: "pst_1" });
+    pay.location.mockReset().mockReturnValue("tml_1");
+  });
+
+  test("terminal config says whether Tap to Pay is set up", async () => {
+    as("owner", w.staffId);
+    expect((await json(await terminalConfig(req("/x")))).data).toEqual({
+      configured: true,
+      locationId: "tml_1",
+    });
+    pay.location.mockReturnValue(null);
+    expect((await json(await terminalConfig(req("/x")))).data).toEqual({
+      configured: false,
+      locationId: null,
+    });
+  });
+
+  test("a connection token is handed to the app", async () => {
+    as("stylist", w.staffId);
+    const res = await connectionToken(req("/x", {}));
+    expect(res.status).toBe(200);
+    expect((await json(res)).data).toEqual({ secret: "pst_1" });
+  });
+
+  test("starting a payment returns the client secret and amount; the amount comes from the server", async () => {
+    as("owner", w.staffId);
+    const res = await cardStart(req("/x", { amountCents: 1 }), ctx(mine));
+    expect(res.status).toBe(201);
+    expect((await json(res)).data).toEqual(started);
+    expect(pay.start).toHaveBeenCalledWith(w.db, mine);
+  });
+
+  test("a stylist can take payment on their own booking but not on a colleague's", async () => {
+    as("stylist", w.staffId);
+    expect((await cardStart(req("/x", {}), ctx(mine))).status).toBe(201);
+    pay.start.mockClear();
+    const res = await cardStart(req("/x", {}), ctx(theirs));
+    expect(res.status).toBe(404);
+    expect(pay.start).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ["nothing_owing", 409, "invalid_state"],
+    ["booking_not_payable", 409, "invalid_state"],
+    ["stripe_not_configured", 503, "payments_unavailable"],
+    ["stripe_error", 502, "payment_provider_error"],
+    ["booking_not_found", 404, "not_found"],
+  ] as const)("a %s payment error becomes %i %s", async (code, status, apiCode) => {
+    as("owner", w.staffId);
+    pay.start.mockRejectedValue(new PaymentError(code, "internal detail sk_live_secret"));
+    const res = await cardStart(req("/x", {}), ctx(mine));
+    expect(res.status).toBe(status);
+    const body = await json(res);
+    expect(body.error.code).toBe(apiCode);
+    if (status >= 500) expect(JSON.stringify(body)).not.toContain("sk_live_secret");
+  });
+
+  test("polling the payment needs a valid payment id and returns where it stands", async () => {
+    as("owner", w.staffId);
+    const ok = await cardStatus(req(`/x?paymentId=${started.paymentId}`), ctx(mine));
+    expect(ok.status).toBe(200);
+    expect((await json(ok)).data).toEqual({
+      status: "pending",
+      bookingStatus: "confirmed",
+      balanceDueCents: 4750,
+    });
+    expect((await cardStatus(req("/x?paymentId=nope"), ctx(mine))).status).toBe(422);
+    expect((await cardStatus(req("/x"), ctx(mine))).status).toBe(422);
+  });
+
+  test("signed out is 401", async () => {
+    state.viewer = null;
+    expect((await cardStart(req("/x", {}), ctx(mine))).status).toBe(401);
+    expect((await connectionToken(req("/x", {}))).status).toBe(401);
+    expect((await terminalConfig(req("/x"))).status).toBe(401);
   });
 });

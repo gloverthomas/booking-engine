@@ -3,10 +3,10 @@ import { z } from "zod";
 import { booking, payment, webhookEvent } from "@/db/schema";
 import { createLogger } from "@/lib/logger";
 import { recordAudit } from "../audit";
-import { confirmBooking } from "../booking";
+import { completeBooking, confirmBooking } from "../booking";
 import type { Db } from "../db-types";
 import { emitDomainEvent } from "../events";
-import { listRefundsOf, lockPayment, sumCents, type PaymentRow } from "./ledger";
+import { listRefundsOf, lockPayment, netPaidCents, sumCents, type PaymentRow } from "./ledger";
 import { CURRENCY, nowOf, type PaymentDeps, type StripeEventLike } from "./stripe";
 
 const log = createLogger("payments");
@@ -169,6 +169,9 @@ async function onIntentSucceeded(ctx: Context, intent: Intent): Promise<void> {
     // Unmatched (no booking) payments are stored and otherwise ignored.
     if (row.bookingId)
       await emitDomainEvent(ctx.tx, { type: "payment.succeeded", paymentId: row.id });
+    if (row.bookingId && row.kind === "balance" && row.method === "stripe_in_person") {
+      await closeIfSettled(ctx, row.bookingId);
+    }
     return;
   }
 
@@ -225,6 +228,20 @@ async function onIntentSucceeded(ctx: Context, intent: Intent): Promise<void> {
     .where(eq(payment.id, row.id));
   if (b?.status === "pending_payment") await confirmBooking(ctx.tx, b.id, ctx.eventAt);
   await emitDomainEvent(ctx.tx, { type: "payment.succeeded", paymentId: row.id });
+}
+
+/**
+ * A card tapped at the appointment settles the balance: finish the booking, as manual checkout does.
+ * Done here (not by the phone) so a dropped connection after the tap cannot leave it open.
+ */
+async function closeIfSettled(ctx: Context, bookingId: string): Promise<void> {
+  const [b] = await ctx.tx.select().from(booking).where(eq(booking.id, bookingId));
+  if (!b || b.status !== "confirmed") return;
+  const paid = netPaidCents(
+    await ctx.tx.select().from(payment).where(eq(payment.bookingId, bookingId)),
+  );
+  if (paid < b.totalCents) return;
+  await completeBooking(ctx.tx, bookingId, ctx.now, "system");
 }
 
 async function onIntentFailed(ctx: Context, intent: Intent): Promise<void> {

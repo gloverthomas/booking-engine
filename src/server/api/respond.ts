@@ -4,6 +4,7 @@ import { createLogger } from "@/lib/logger";
 import { BOOKING_NOT_FOUND_MESSAGE, NOT_ALLOWED_MESSAGE } from "../admin/access";
 import { AdminError, isOverlapError } from "../admin/errors";
 import { AccessDeniedError } from "../auth/access-core";
+import { PaymentError } from "../payments/stripe";
 import {
   BookingStateError,
   ClientBlockedError,
@@ -62,6 +63,29 @@ function fieldsOf(error: ZodError): Record<string, string> {
   return fields;
 }
 
+function paymentErrorResponse(error: PaymentError): Response {
+  switch (error.code) {
+    case "stripe_not_configured":
+    case "terminal_not_configured":
+      return failure(503, {
+        code: "payments_unavailable",
+        message: "Card payments are not set up yet. Ask the owner to finish the Stripe setup.",
+      });
+    case "booking_not_found":
+    case "payment_not_found":
+      return failure(404, { code: "not_found", message: error.message });
+    case "invalid_amount":
+      return failure(422, { code: "invalid_request", message: error.message });
+    case "stripe_error":
+      return failure(502, {
+        code: "payment_provider_error",
+        message: "Stripe could not be reached. Nothing was charged. Please try again.",
+      });
+    default:
+      return failure(409, { code: "invalid_state", message: error.message });
+  }
+}
+
 /** Every thrown thing becomes a response. Only unknown errors are logged, and their text is never returned. */
 export function errorResponse(error: unknown): Response {
   if (error instanceof ApiError) {
@@ -106,6 +130,7 @@ export function errorResponse(error: unknown): Response {
   if (error instanceof ValidationError) {
     return failure(422, { code: "invalid_request", message: error.message });
   }
+  if (error instanceof PaymentError) return paymentErrorResponse(error);
   if (error instanceof AdminError) {
     // The commands signal these two outcomes by message; the API gives them their proper statuses.
     if (error.message === BOOKING_NOT_FOUND_MESSAGE) {

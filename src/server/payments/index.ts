@@ -5,6 +5,13 @@ export { chargeSavedCard, recordManualPayment } from "./charge";
 export { processStripeEvent, type WebhookOutcome } from "./webhook";
 export { refundOrphanedDeposits } from "./orphans";
 export {
+  createConnectionToken,
+  inPersonPaymentStatus,
+  startInPersonPayment,
+  terminalLocationId,
+  type InPersonPayment,
+} from "./terminal";
+export {
   PaymentError,
   getStripe,
   getWebhookSecret,

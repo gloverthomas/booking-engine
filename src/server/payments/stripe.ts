@@ -12,6 +12,8 @@ export type PaymentErrorCode =
   | "no_deposit_due"
   | "invalid_amount"
   | "not_refundable"
+  | "nothing_owing"
+  | "terminal_not_configured"
   | "stripe_error";
 
 /** A typed failure the caller (route, worker, admin action) can branch on via `code`. */
@@ -62,7 +64,7 @@ export interface StripeLike {
       params: {
         amount: number;
         currency: string;
-        customer: string;
+        customer?: string;
         description?: string;
         metadata: Record<string, string>;
         automatic_payment_methods?: { enabled: boolean };
@@ -70,10 +72,19 @@ export interface StripeLike {
         payment_method?: string;
         off_session?: boolean;
         confirm?: boolean;
+        payment_method_types?: string[];
+        capture_method?: "automatic" | "manual";
+        receipt_email?: string;
       },
       options: StripeRequestOptions,
     ): Promise<StripeIntentLike>;
     retrieve(id: string): Promise<StripeIntentLike>;
+    cancel(id: string): Promise<StripeIntentLike>;
+  };
+  terminal: {
+    connectionTokens: {
+      create(params: { location?: string }): Promise<{ secret: string }>;
+    };
   };
   refunds: {
     create(

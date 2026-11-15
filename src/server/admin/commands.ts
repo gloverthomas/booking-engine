@@ -53,7 +53,7 @@ async function audit(
  * The booking's stylist and status, or "not found" when it does not exist or belongs to another stylist
  * and the actor is a stylist. A stylist can therefore never tell someone else's booking from a missing one.
  */
-async function loadAccessibleBooking(
+export async function loadAccessibleBooking(
   ctx: CommandContext,
   bookingId: string,
 ): Promise<{ staffId: string; status: typeof booking.$inferSelect.status; totalCents: number }> {

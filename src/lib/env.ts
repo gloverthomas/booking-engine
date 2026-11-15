@@ -27,6 +27,8 @@ const envSchema = z.object({
   GOOGLE_IOS_CLIENT_ID: z.string().optional(),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  /** Stripe Terminal Location (tml_...) for the salon address. Needed to take Tap to Pay payments. */
+  STRIPE_TERMINAL_LOCATION_ID: z.string().optional(),
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
