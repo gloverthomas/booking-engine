@@ -1,12 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { client, location, service, waitlistEntry } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import {
-  ClientBlockedError,
-  NotFoundError,
-  ValidationError,
-  VipOnlyError,
-} from "@/server/booking";
+import { ClientBlockedError, NotFoundError, ValidationError, VipOnlyError } from "@/server/booking";
 import { cancelWaitlistEntry, WaitlistDisabledError } from "@/server/waitlist";
 import { MAX_ACTIVE_ENTRIES_PER_CLIENT } from "@/server/waitlist";
 import { addStaff, createWorld, local, setSettings, type World } from "../availability/setup";
@@ -130,7 +125,9 @@ describe("cancelWaitlistEntry", () => {
     await cancelWaitlistEntry(w.db, entryId, "client", { now: NOW });
     await cancelWaitlistEntry(w.db, entryId, "client", { now: NOW });
     expect((await entryRow(w.db, entryId)).status).toBe("cancelled");
-    expect((await audits(w.db, entryId)).filter((a) => a.action === "waitlist.cancel")).toHaveLength(1);
+    expect(
+      (await audits(w.db, entryId)).filter((a) => a.action === "waitlist.cancel"),
+    ).toHaveLength(1);
   });
 
   test("staff cancellation records the given actor", async () => {

@@ -1,11 +1,36 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { cancelBooking, BookingStateError, ClientBlockedError, NotFoundError, SlotTakenError, ValidationError } from "@/server/booking";
+import {
+  cancelBooking,
+  BookingStateError,
+  ClientBlockedError,
+  NotFoundError,
+  SlotTakenError,
+  ValidationError,
+} from "@/server/booking";
 import { client, waitlistOffer, service } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { createWaitlistOffer, offerFreedSlot, cancelWaitlistEntry } from "@/server/waitlist";
-import { addStaff, createWorld, local, setSettings, addBlock, type World } from "../availability/setup";
+import {
+  addStaff,
+  createWorld,
+  local,
+  setSettings,
+  addBlock,
+  type World,
+} from "../availability/setup";
 import { offer } from "../availability/setup";
-import { audits, bookedSlot, entryRow, events, join, MONDAY_10, NOW, offerRow, offerTo, person } from "./setup";
+import {
+  audits,
+  bookedSlot,
+  entryRow,
+  events,
+  join,
+  MONDAY_10,
+  NOW,
+  offerRow,
+  offerTo,
+  person,
+} from "./setup";
 
 let w: World;
 beforeEach(async () => {
@@ -117,7 +142,13 @@ describe("createWaitlistOffer", () => {
       createWaitlistOffer(w.db, { entryId, staffId: alex.id, during, offeredBy: "auto", now: NOW }),
     ).rejects.toBeInstanceOf(ValidationError);
     await expect(
-      createWaitlistOffer(w.db, { entryId, staffId: alex.id, during, offeredBy: "owner:u1", now: NOW }),
+      createWaitlistOffer(w.db, {
+        entryId,
+        staffId: alex.id,
+        during,
+        offeredBy: "owner:u1",
+        now: NOW,
+      }),
     ).resolves.toHaveProperty("offerId");
   });
 });
@@ -184,7 +215,12 @@ describe("offerFreedSlot", () => {
     const wrongDay = await join(w, { client: person(1), weekdays: [3] });
     const wrongTime = await join(w, { client: person(2), fromMinute: 780, toMinute: 1000 });
     const outOfRange = await join(w, { client: person(3), earliestDate: "2026-11-04" });
-    const rightTime = await join(w, { client: person(4), weekdays: [1], fromMinute: 600, toMinute: 600 });
+    const rightTime = await join(w, {
+      client: person(4),
+      weekdays: [1],
+      fromMinute: 600,
+      toMinute: 600,
+    });
     const { offerIds } = await offerFreedSlot(w.db, slot(), NOW);
     expect(offerIds).toHaveLength(1);
     expect((await entryRow(w.db, rightTime.entryId)).status).toBe("offered");
@@ -194,7 +230,9 @@ describe("offerFreedSlot", () => {
   });
 
   test("only offers to entries whose services fit the freed range", async () => {
-    const long = await (await import("../helpers/factories")).createService(w.db, w.businessId, {
+    const long = await (
+      await import("../helpers/factories")
+    ).createService(w.db, w.businessId, {
       name: "Long colour",
       durationMin: 120,
     });
@@ -207,7 +245,9 @@ describe("offerFreedSlot", () => {
     expect((await entryRow(w.db, shortEntry.entryId)).status).toBe("offered");
     const wide = await offerFreedSlot(w.db, slot("2026-11-03T10:00", 150), NOW);
     expect(wide.offerIds).toHaveLength(2);
-    const during = (await w.db.select().from(waitlistOffer)).map((o) => o.during.end.getTime() - o.during.start.getTime());
+    const during = (await w.db.select().from(waitlistOffer)).map(
+      (o) => o.during.end.getTime() - o.during.start.getTime(),
+    );
     expect(during.sort()).toEqual([45 * 60_000, 45 * 60_000, 120 * 60_000]);
   });
 

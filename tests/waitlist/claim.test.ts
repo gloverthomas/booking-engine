@@ -158,7 +158,10 @@ describe("claimOffer", () => {
 
   test("a withdrawn offer cannot be claimed", async () => {
     const { offerId, token } = await offered();
-    await w.db.update(waitlistOffer).set({ status: "cancelled" }).where(eq(waitlistOffer.id, offerId));
+    await w.db
+      .update(waitlistOffer)
+      .set({ status: "cancelled" })
+      .where(eq(waitlistOffer.id, offerId));
     await expect(claim(token)).rejects.toMatchObject({ reason: "cancelled" });
   });
 
@@ -207,7 +210,10 @@ describe("claimOffer", () => {
   test("uses ENCRYPTION_KEY from options for tokens", async () => {
     const { token } = await offered();
     await expect(
-      claimOffer(w.db, token, NOW, { encryptionKey: Buffer.alloc(32, 1).toString("base64"), policyVersion: "1" }),
+      claimOffer(w.db, token, NOW, {
+        encryptionKey: Buffer.alloc(32, 1).toString("base64"),
+        policyVersion: "1",
+      }),
     ).rejects.toBeInstanceOf(NotFoundError);
     expect(KEY).toBeTruthy();
   });

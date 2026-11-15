@@ -207,7 +207,10 @@ describe("booking.confirmed", () => {
   test("a booking that was cancelled before the event is ignored", async () => {
     const { entryId, hold } = await claimedAndPaid();
     await confirmBooking(w.db, hold.bookingId, NOW);
-    await w.db.update(booking).set({ status: "cancelled_by_client" }).where(eq(booking.id, hold.bookingId));
+    await w.db
+      .update(booking)
+      .set({ status: "cancelled_by_client" })
+      .where(eq(booking.id, hold.bookingId));
     await send({ type: "booking.confirmed", bookingId: hold.bookingId });
     expect((await entryRow(w.db, entryId)).status).toBe("offered");
   });
@@ -243,7 +246,10 @@ describe("expireWaitlist", () => {
   test("an entry whose offer was taken goes back to waiting while it has time, not once its window is over", async () => {
     const { entryId } = await join(w);
     const { offerId } = await offerTo(w, entryId);
-    await w.db.update(waitlistOffer).set({ status: "slot_taken" }).where(eq(waitlistOffer.id, offerId));
+    await w.db
+      .update(waitlistOffer)
+      .set({ status: "slot_taken" })
+      .where(eq(waitlistOffer.id, offerId));
     expect(await expireWaitlist(w.db, NOW)).toBe(1);
     expect((await entryRow(w.db, entryId)).status).toBe("waiting");
   });

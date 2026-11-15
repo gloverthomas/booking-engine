@@ -7,6 +7,7 @@ import { FeeCharged, feeChargedSubject } from "./FeeCharged";
 import { InvoiceEmail, invoiceSubject } from "./InvoiceEmail";
 import { OneOffMessage } from "./OneOffMessage";
 import { OwnerAlert, ownerAlertSubject } from "./OwnerAlert";
+import { WaitlistOffer, waitlistOfferSubject, type WaitlistOfferProps } from "./WaitlistOffer";
 import type {
   BookingCancelledProps,
   BookingConfirmationProps,
@@ -18,6 +19,7 @@ import type {
 } from "./props";
 
 export type * from "./props";
+export type { WaitlistOfferProps } from "./WaitlistOffer";
 
 export interface RenderedEmail {
   subject: string;
@@ -62,4 +64,8 @@ export function renderOwnerAlert(p: OwnerAlertProps): Promise<RenderedEmail> {
 
 export function renderOneOffMessage(p: OneOffMessageProps): Promise<RenderedEmail> {
   return renderTemplate(p.subject, createElement(OneOffMessage, p));
+}
+
+export function renderWaitlistOffer(p: WaitlistOfferProps): Promise<RenderedEmail> {
+  return renderTemplate(waitlistOfferSubject(p), createElement(WaitlistOffer, p));
 }

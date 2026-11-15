@@ -44,7 +44,12 @@ export async function join(w: World, overrides: Partial<WaitlistJoinInput> = {})
 export async function bookedSlot(
   w: World,
   at = MONDAY_10,
-  client: ClientInput = { firstName: "Booker", lastName: "One", email: "b@example.com", phone: "0499000111" },
+  client: ClientInput = {
+    firstName: "Booker",
+    lastName: "One",
+    email: "b@example.com",
+    phone: "0499000111",
+  },
 ): Promise<HoldResult> {
   const hold = await createHold(
     w.db,
