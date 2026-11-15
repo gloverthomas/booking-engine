@@ -7,6 +7,7 @@ import { FeeCharged, feeChargedSubject } from "./FeeCharged";
 import { InvoiceEmail, invoiceSubject } from "./InvoiceEmail";
 import { OneOffMessage } from "./OneOffMessage";
 import { OwnerAlert, ownerAlertSubject } from "./OwnerAlert";
+import { StaffAlert, staffAlertSubject } from "./StaffAlert";
 import type {
   BookingCancelledProps,
   BookingConfirmationProps,
@@ -15,6 +16,7 @@ import type {
   InvoiceEmailProps,
   OneOffMessageProps,
   OwnerAlertProps,
+  StaffAlertProps,
 } from "./props";
 
 export type * from "./props";
@@ -58,6 +60,10 @@ export function renderInvoiceEmail(p: InvoiceEmailProps): Promise<RenderedEmail>
 
 export function renderOwnerAlert(p: OwnerAlertProps): Promise<RenderedEmail> {
   return renderTemplate(ownerAlertSubject(p), createElement(OwnerAlert, p));
+}
+
+export function renderStaffAlert(p: StaffAlertProps): Promise<RenderedEmail> {
+  return renderTemplate(staffAlertSubject(p), createElement(StaffAlert, p));
 }
 
 export function renderOneOffMessage(p: OneOffMessageProps): Promise<RenderedEmail> {

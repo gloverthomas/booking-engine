@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import { staff } from "@/db/schema";
 import type { Db } from "@/server/db-types";
 import {
