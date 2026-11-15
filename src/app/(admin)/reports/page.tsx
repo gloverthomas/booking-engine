@@ -27,27 +27,32 @@ export default function ReportsOverviewPage({ searchParams }: { searchParams: Se
       searchParams={searchParams}
       render={async (ctx) => {
         const range = { timezone: ctx.timezone, from: ctx.params.from, to: ctx.params.to };
+        const scoped = { ...range, staffId: ctx.staffId };
+        // Whole-business figures (clients, balances) are only for roles that see everyone.
+        const everyone = ctx.scope.kind === "all";
         const [revenue, bookings, cancellations, clients, outstanding, top] = await Promise.all([
           getRevenueReport(ctx.db, {
-            ...range,
+            ...scoped,
             granularity: ctx.params.granularity,
             groupBy: "none",
           }),
-          getBookingsReport(ctx.db, range),
-          getCancellationsReport(ctx.db, range),
-          getClientsReport(ctx.db, { ...range, now: ctx.now }),
-          getOutstandingReport(ctx.db, { now: ctx.now }),
-          buildReportTable(ctx.db, "top-clients", {
-            timezone: ctx.timezone,
-            now: ctx.now,
-            query: ctx.query,
-          }),
+          getBookingsReport(ctx.db, scoped),
+          getCancellationsReport(ctx.db, scoped),
+          everyone ? getClientsReport(ctx.db, { ...range, now: ctx.now }) : null,
+          everyone ? getOutstandingReport(ctx.db, { now: ctx.now }) : null,
+          everyone ? buildReportTable(ctx.db, "top-clients", ctx.tableContext) : null,
         ]);
         const qs = queryString(ctx.params);
         const t = revenue.totals;
         return (
           <>
-            <DateRangeForm path="/reports" params={ctx.params} presets={ctx.presets} granularity />
+            <DateRangeForm
+              path="/reports"
+              params={ctx.params}
+              presets={ctx.presets}
+              granularity
+              staffOptions={ctx.staffOptions}
+            />
             <StatTiles
               tiles={[
                 {
@@ -71,16 +76,20 @@ export default function ReportsOverviewPage({ searchParams }: { searchParams: Se
                   value: pct(cancellations.cancellationRatePct),
                   note: `${formatAud(cancellations.keptCents)} kept`,
                 },
-                {
-                  label: "New clients",
-                  value: String(clients.newClients),
-                  note: `${clients.returningClients} returning`,
-                },
-                {
-                  label: "Balances overdue",
-                  value: formatAud(outstanding.overdueCents),
-                  note: `${outstanding.overdueCount} appointment${outstanding.overdueCount === 1 ? "" : "s"}`,
-                },
+                ...(clients && outstanding
+                  ? [
+                      {
+                        label: "New clients",
+                        value: String(clients.newClients),
+                        note: `${clients.returningClients} returning`,
+                      },
+                      {
+                        label: "Balances overdue",
+                        value: formatAud(outstanding.overdueCents),
+                        note: `${outstanding.overdueCount} appointment${outstanding.overdueCount === 1 ? "" : "s"}`,
+                      },
+                    ]
+                  : []),
               ]}
             />
             <Card aria-labelledby="overview-revenue">
@@ -110,7 +119,9 @@ export default function ReportsOverviewPage({ searchParams }: { searchParams: Se
                   }))}
                 />
               </Card>
-              <DataTable table={{ ...top, rows: top.rows.slice(0, 5) }} exportQuery={qs} />
+              {top ? (
+                <DataTable table={{ ...top, rows: top.rows.slice(0, 5) }} exportQuery={qs} />
+              ) : null}
             </div>
           </>
         );

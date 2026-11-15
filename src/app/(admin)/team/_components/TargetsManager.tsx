@@ -2,7 +2,19 @@
 
 import { useState } from "react";
 import { useSubmit } from "@/components/admin/shell/use-submit";
-import { Button, Dialog, EmptyState, Input, Select, Table, TBody, TD, TH, THead, TR } from "@/components/ui";
+import {
+  Button,
+  Dialog,
+  EmptyState,
+  Input,
+  Select,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
+} from "@/components/ui";
 import { TARGET_METRIC_LABEL, TARGET_METRICS, type TargetMetric } from "@/server/targets/units";
 import { createTargetAction, deleteTargetAction, updateTargetAction } from "../actions";
 
@@ -142,7 +154,12 @@ export function TargetsManager({
       >
         {editing !== null ? (
           <form onSubmit={onSubmit} className="flex flex-col gap-3" noValidate>
-            <Select name="staffId" label="Who" defaultValue={editingTarget?.staffId ?? ""} error={fe.staffId}>
+            <Select
+              name="staffId"
+              label="Who"
+              defaultValue={editingTarget?.staffId ?? ""}
+              error={fe.staffId}
+            >
               <option value="">Whole business</option>
               {staff.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -163,7 +180,12 @@ export function TargetsManager({
                 </option>
               ))}
             </Select>
-            <Select name="period" label="Period" defaultValue={editingTarget?.period ?? "month"} error={fe.period}>
+            <Select
+              name="period"
+              label="Period"
+              defaultValue={editingTarget?.period ?? "month"}
+              error={fe.period}
+            >
               <option value="week">Weekly</option>
               <option value="month">Monthly</option>
             </Select>

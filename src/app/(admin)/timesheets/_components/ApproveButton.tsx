@@ -22,9 +22,7 @@ export function ApproveButton({
         size={size}
         variant="secondary"
         loading={pending}
-        onClick={() =>
-          submit(() => approveEntriesAction({ entryIds }), { success: "Approved" })
-        }
+        onClick={() => submit(() => approveEntriesAction({ entryIds }), { success: "Approved" })}
       >
         {label}
       </Button>

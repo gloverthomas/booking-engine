@@ -1,12 +1,14 @@
 import { connection } from "next/server";
 import { ZodError } from "zod";
 import { getDb } from "@/db/client";
-import { requireOwner } from "@/server/auth";
+import { requireAccess } from "@/server/auth/access";
 import {
+  ReportAccessError,
   ReportInputError,
   buildReportTable,
   isReportTableId,
   loadBusinessContext,
+  reportScopeFor,
   resolveRange,
   resolveParams,
   tableToCsv,
@@ -14,14 +16,17 @@ import {
 
 /**
  * CSV download for any report table: /reports/export/<table>?from=..&to=..&granularity=..&groupBy=..
- * Owner only. Cells are escaped, and text that a spreadsheet could run as a formula is neutralised (see csv.ts).
+
+ * Needs reports.viewOwn; a role with only that is forced to its own staff id on the server (the `staff` and
+ * `groupBy` parameters cannot widen it), and whole-business tables are refused (403). Cells are escaped, and text that a spreadsheet could run as a formula is neutralised (see csv.ts).
  */
 export async function GET(
   request: Request,
   ctx: { params: Promise<{ table: string }> },
 ): Promise<Response> {
   await connection();
-  await requireOwner();
+  const session = await requireAccess("reports.viewOwn");
+  const scope = reportScopeFor(session.role, session.staffId);
   const { table: id } = await ctx.params;
   if (!isReportTableId(id)) return new Response("Unknown report table", { status: 404 });
 
@@ -32,7 +37,7 @@ export async function GET(
   try {
     const params = resolveParams(query, timezone, now);
     resolveRange(timezone, params.from, params.to);
-    const table = await buildReportTable(db, id, { timezone, now, query });
+    const table = await buildReportTable(db, id, { timezone, now, query, scope });
     const stamp = `${params.from}_to_${params.to}`;
     return new Response(tableToCsv(table), {
       headers: {
@@ -43,6 +48,7 @@ export async function GET(
       },
     });
   } catch (error) {
+    if (error instanceof ReportAccessError) return new Response(error.message, { status: 403 });
     if (error instanceof ZodError || error instanceof ReportInputError) {
       return new Response("Invalid date range or options", { status: 400 });
     }

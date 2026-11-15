@@ -97,7 +97,11 @@ export function EntryDialog({ mode, staffId, entry, defaultDate, locations }: En
             type="datetime-local"
             required={!editing || entry?.clockOut !== null}
             defaultValue={entry?.clockOut ?? (editing ? "" : `${defaultDate}T17:00`)}
-            hint={editing && entry?.clockOut === null ? "Leave empty to keep them clocked in." : undefined}
+            hint={
+              editing && entry?.clockOut === null
+                ? "Leave empty to keep them clocked in."
+                : undefined
+            }
             error={fieldErrors.clockOut}
           />
           <Input

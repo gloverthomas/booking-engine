@@ -6,11 +6,7 @@ import {
   deleteTargetCommand,
   updateTargetCommand,
 } from "@/server/targets/commands";
-import {
-  deleteTargetSchema,
-  targetFormSchema,
-  updateTargetSchema,
-} from "@/server/targets/schemas";
+import { deleteTargetSchema, targetFormSchema, updateTargetSchema } from "@/server/targets/schemas";
 import { accessAction } from "../timesheets/_lib/access-action";
 
 /** Target changes are for the owner and managers (staff.manage). The rules live in src/server/targets. */

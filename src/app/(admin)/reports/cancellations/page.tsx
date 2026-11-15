@@ -12,17 +12,15 @@ export default function CancellationsReportPage({ searchParams }: { searchParams
     <ReportPageShell
       searchParams={searchParams}
       render={async (ctx) => {
-        const [report, table] = await Promise.all([
+        const [report, byStaff, table] = await Promise.all([
           getCancellationsReport(ctx.db, {
             timezone: ctx.timezone,
             from: ctx.params.from,
             to: ctx.params.to,
+            staffId: ctx.staffId,
           }),
-          buildReportTable(ctx.db, "cancellations", {
-            timezone: ctx.timezone,
-            now: ctx.now,
-            query: ctx.query,
-          }),
+          buildReportTable(ctx.db, "cancellations-by-staff", ctx.tableContext),
+          buildReportTable(ctx.db, "cancellations", ctx.tableContext),
         ]);
         const c = report.counts;
         return (
@@ -31,6 +29,7 @@ export default function CancellationsReportPage({ searchParams }: { searchParams
               path="/reports/cancellations"
               params={ctx.params}
               presets={ctx.presets}
+              staffOptions={ctx.staffOptions}
             />
             <StatTiles
               tiles={[
@@ -54,6 +53,7 @@ export default function CancellationsReportPage({ searchParams }: { searchParams
                 },
               ]}
             />
+            <DataTable table={byStaff} exportQuery={queryString(ctx.params)} />
             <DataTable
               table={table}
               exportQuery={queryString(ctx.params)}

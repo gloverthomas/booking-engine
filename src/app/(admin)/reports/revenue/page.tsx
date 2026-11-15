@@ -21,12 +21,9 @@ export default function RevenueReportPage({ searchParams }: { searchParams: Sear
             to: ctx.params.to,
             granularity: ctx.params.granularity,
             groupBy: ctx.params.groupBy,
+            staffId: ctx.staffId,
           }),
-          buildReportTable(ctx.db, "revenue", {
-            timezone: ctx.timezone,
-            now: ctx.now,
-            query: ctx.query,
-          }),
+          buildReportTable(ctx.db, "revenue", ctx.tableContext),
         ]);
         const t = report.totals;
         return (
@@ -37,6 +34,7 @@ export default function RevenueReportPage({ searchParams }: { searchParams: Sear
               presets={ctx.presets}
               granularity
               groupBy
+              staffOptions={ctx.staffOptions}
             />
             <StatTiles
               tiles={[

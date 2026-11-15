@@ -13,11 +13,21 @@ function Skeleton() {
 async function Loaded({
   searchParams,
   render,
+  access,
 }: {
   searchParams: SearchParams;
   render: (ctx: ReportPageContext) => Promise<ReactNode>;
+  access: "own" | "all";
 }) {
-  const ctx = await loadReportPage(searchParams);
+  const ctx = await loadReportPage(searchParams, access);
+  if (ctx.scope.kind === "none") {
+    return (
+      <p role="alert" className="rpt-error">
+        Your login is not linked to a staff profile yet, so there are no numbers to show. Ask the
+        owner to link it under Staff.
+      </p>
+    );
+  }
   return (
     <>
       {ctx.inputError ? (
@@ -37,13 +47,16 @@ async function Loaded({
 export function ReportPageShell({
   searchParams,
   render,
+  access = "own",
 }: {
   searchParams: SearchParams;
   render: (ctx: ReportPageContext) => Promise<ReactNode>;
+  /** "own": anyone with reports.viewOwn (scoped to themselves). "all": reports.viewAll only. */
+  access?: "own" | "all";
 }) {
   return (
     <Suspense fallback={<Skeleton />}>
-      <Loaded searchParams={searchParams} render={render} />
+      <Loaded searchParams={searchParams} render={render} access={access} />
     </Suspense>
   );
 }

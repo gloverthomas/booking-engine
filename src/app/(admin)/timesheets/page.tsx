@@ -5,7 +5,18 @@ import { DateTime } from "luxon";
 import { asc, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { location } from "@/db/schema";
-import { Alert, Badge, EmptyState, PageHeader, Table, TBody, TD, TH, THead, TR } from "@/components/ui";
+import {
+  Alert,
+  Badge,
+  EmptyState,
+  PageHeader,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
+} from "@/components/ui";
 import { buttonClasses } from "@/components/ui";
 import { requireAccess } from "@/server/auth/access";
 import { can } from "@/server/auth/permissions";
@@ -75,7 +86,9 @@ async function Loaded({ searchParams }: { searchParams: SearchParams }) {
     staff: first(raw.staff) || undefined,
   });
   let weekStart = weekStartOf(now, timezone);
-  let notice: string | null = parsed.success ? null : "That link was not valid, so this week is shown.";
+  let notice: string | null = parsed.success
+    ? null
+    : "That link was not valid, so this week is shown.";
   try {
     if (parsed.success && parsed.data.week) weekStart = weekStartOf(parsed.data.week, timezone);
   } catch (error) {
@@ -97,11 +110,16 @@ async function Loaded({ searchParams }: { searchParams: SearchParams }) {
     .where(eq(location.active, true))
     .orderBy(asc(location.sortOrder), asc(location.name));
   const canApprove = can(session.role, "timesheets.approve");
-  const prev = DateTime.fromISO(weekStart, { zone: "utc" }).minus({ weeks: 1 }).toISODate() ?? weekStart;
-  const next = DateTime.fromISO(weekStart, { zone: "utc" }).plus({ weeks: 1 }).toISODate() ?? weekStart;
+  const prev =
+    DateTime.fromISO(weekStart, { zone: "utc" }).minus({ weeks: 1 }).toISODate() ?? weekStart;
+  const next =
+    DateTime.fromISO(weekStart, { zone: "utc" }).plus({ weeks: 1 }).toISODate() ?? weekStart;
   const thisWeek = weekStartOf(now, timezone);
   const viewing = ids === "all" ? undefined : requested;
-  const exportQuery = new URLSearchParams({ week: weekStart, ...(viewing ? { staff: viewing } : {}) });
+  const exportQuery = new URLSearchParams({
+    week: weekStart,
+    ...(viewing ? { staff: viewing } : {}),
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -130,7 +148,10 @@ async function Loaded({ searchParams }: { searchParams: SearchParams }) {
       />
       {notice ? <Alert tone="warning">{notice}</Alert> : null}
       <nav aria-label="Week" className="flex flex-wrap items-center gap-2">
-        <Link className={buttonClasses({ variant: "secondary", size: "sm" })} href={weekHref(prev, viewing)}>
+        <Link
+          className={buttonClasses({ variant: "secondary", size: "sm" })}
+          href={weekHref(prev, viewing)}
+        >
           Previous week
         </Link>
         <Link
@@ -140,7 +161,10 @@ async function Loaded({ searchParams }: { searchParams: SearchParams }) {
         >
           This week
         </Link>
-        <Link className={buttonClasses({ variant: "secondary", size: "sm" })} href={weekHref(next, viewing)}>
+        <Link
+          className={buttonClasses({ variant: "secondary", size: "sm" })}
+          href={weekHref(next, viewing)}
+        >
           Next week
         </Link>
         <h2 className="ml-2 text-lg font-semibold">{formatWeekLabel(weekStart)}</h2>
@@ -242,7 +266,10 @@ function TeamTable({
               </TD>
               <TD>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Link className={buttonClasses({ variant: "ghost", size: "sm" })} href={weekHref(weekStart, s.staffId)}>
+                  <Link
+                    className={buttonClasses({ variant: "ghost", size: "sm" })}
+                    href={weekHref(weekStart, s.staffId)}
+                  >
                     View
                   </Link>
                   {canApprove && pendingIds.length > 0 ? (
@@ -260,7 +287,9 @@ function TeamTable({
 
 function entryTimes(e: TimesheetEntryView, timezone: string): string {
   const start = formatClockTime(e.clockIn, timezone);
-  return e.clockOut ? `${start} to ${formatClockTime(e.clockOut, timezone)}` : `${start}, still clocked in`;
+  return e.clockOut
+    ? `${start} to ${formatClockTime(e.clockOut, timezone)}`
+    : `${start}, still clocked in`;
 }
 
 function PersonWeek({
@@ -306,9 +335,18 @@ function PersonWeek({
         </div>
         {canApprove ? (
           <div className="flex gap-2">
-            <EntryDialog mode="add" staffId={sheet.staffId} defaultDate={defaultDate} locations={locations} />
+            <EntryDialog
+              mode="add"
+              staffId={sheet.staffId}
+              defaultDate={defaultDate}
+              locations={locations}
+            />
             {pendingIds.length > 0 ? (
-              <ApproveButton entryIds={pendingIds} label={`Approve ${pendingIds.length}`} size="md" />
+              <ApproveButton
+                entryIds={pendingIds}
+                label={`Approve ${pendingIds.length}`}
+                size="md"
+              />
             ) : null}
           </div>
         ) : null}
@@ -326,7 +364,9 @@ function PersonWeek({
         <TBody>
           {sheet.days.map((day) => (
             <TR key={day.date}>
-              <TD className="whitespace-nowrap font-semibold align-top">{formatDayLabel(day.date)}</TD>
+              <TD className="whitespace-nowrap font-semibold align-top">
+                {formatDayLabel(day.date)}
+              </TD>
               <TD>
                 {day.entries.length === 0 ? (
                   <span className="text-ink-subtle">No time recorded</span>
@@ -338,7 +378,9 @@ function PersonWeek({
                         {e.breakMinutes > 0 ? (
                           <span className="text-ink-muted">{e.breakMinutes}m break</span>
                         ) : null}
-                        {e.locationName ? <span className="text-ink-muted">{e.locationName}</span> : null}
+                        {e.locationName ? (
+                          <span className="text-ink-muted">{e.locationName}</span>
+                        ) : null}
                         {e.source === "manual" ? <Badge>Added by hand</Badge> : null}
                         <Badge tone={STATUS[e.status].tone}>{STATUS[e.status].label}</Badge>
                         {e.note ? <span className="text-ink-muted">{e.note}</span> : null}
@@ -352,13 +394,17 @@ function PersonWeek({
                               entry={{
                                 id: e.id,
                                 clockIn: toLocalInputValue(e.clockIn, timezone),
-                                clockOut: e.clockOut ? toLocalInputValue(e.clockOut, timezone) : null,
+                                clockOut: e.clockOut
+                                  ? toLocalInputValue(e.clockOut, timezone)
+                                  : null,
                                 breakMinutes: e.breakMinutes,
                                 locationId: e.locationId,
                                 note: e.note,
                               }}
                             />
-                            {e.status === "pending" ? <ApproveButton entryIds={[e.id]} label="Approve" /> : null}
+                            {e.status === "pending" ? (
+                              <ApproveButton entryIds={[e.id]} label="Approve" />
+                            ) : null}
                           </span>
                         ) : null}
                       </li>
@@ -366,8 +412,12 @@ function PersonWeek({
                   </ul>
                 )}
               </TD>
-              <TD className="text-right tabular-nums align-top">{formatDuration(day.workedMinutes)}</TD>
-              <TD className="text-right tabular-nums align-top">{formatDuration(day.rosteredMinutes)}</TD>
+              <TD className="text-right tabular-nums align-top">
+                {formatDuration(day.workedMinutes)}
+              </TD>
+              <TD className="text-right tabular-nums align-top">
+                {formatDuration(day.rosteredMinutes)}
+              </TD>
               <TD className="tabular-nums align-top">
                 <Diff minutes={day.differenceMinutes} />
               </TD>

@@ -1,7 +1,9 @@
 import { connection } from "next/server";
 import { ZodError } from "zod";
 import { getDb } from "@/db/client";
-import { requireOwner } from "@/server/auth";
+import { asc } from "drizzle-orm";
+import { staff } from "@/db/schema";
+import { requireAccess } from "@/server/auth/access";
 import {
   ReportInputError,
   defaultRange,
@@ -9,7 +11,10 @@ import {
   rangePresets,
   resolveParams,
   resolveRange,
+  reportScopeFor,
+  scopedStaffId,
   type RangePreset,
+  type ReportScope,
   type ReportParams,
 } from "@/server/reports";
 
@@ -27,14 +32,35 @@ export interface ReportPageContext {
   query: Record<string, string | string[] | undefined>;
   /** Set when the URL had bad input; the page shows it and falls back to month to date. */
   inputError: string | null;
+  /** Whose numbers the signed-in person may see. Derived from their role on the server, never from the URL. */
+  scope: ReportScope;
+  /** The stylist every query is limited to: forced to themselves for own-only roles. */
+  staffId: string | undefined;
+  /** Stylists to pick from. Only for roles that see everyone. */
+  staffOptions: Array<{ id: string; name: string }>;
+  /** Passed to the table builders so they enforce the same scope. */
+  tableContext: {
+    timezone: string;
+    now: Date;
+    query: Record<string, string | string[] | undefined>;
+    scope: ReportScope;
+  };
 }
 
-/** Guard the page (owner only), then resolve the date range and options from the URL. Runs at request time. */
-export async function loadReportPage(searchParams: SearchParams): Promise<ReportPageContext> {
+/**
+ * Guard the page, then resolve the date range and options from the URL. Runs at request time.
+ * `level` "own" needs reports.viewOwn (stylists see only themselves); "all" needs reports.viewAll
+ * (whole-business pages such as clients and outstanding balances).
+ */
+export async function loadReportPage(
+  searchParams: SearchParams,
+  level: "own" | "all" = "own",
+): Promise<ReportPageContext> {
   // Request time only: never prerender a page that reads the session and the database.
   await connection();
   const query = await searchParams;
-  await requireOwner();
+  const session = await requireAccess(level === "all" ? "reports.viewAll" : "reports.viewOwn");
+  const scope = reportScopeFor(session.role, session.staffId);
   const db = getDb();
   const { timezone } = await loadBusinessContext(db);
   const now = new Date();
@@ -52,27 +78,38 @@ export async function loadReportPage(searchParams: SearchParams): Promise<Report
           : "Could not read the date range.";
     params = { ...resolveParams({}, timezone, now), ...defaultRange(now, timezone) };
   }
+  const effectiveQuery = inputError ? {} : query;
+  const staffOptions =
+    scope.kind === "all"
+      ? await db.select({ id: staff.id, name: staff.name }).from(staff).orderBy(asc(staff.name))
+      : [];
   return {
     db,
     timezone,
     now,
     params,
     presets: rangePresets(now, timezone),
-    query: inputError ? {} : query,
+    query: effectiveQuery,
     inputError,
+    scope,
+    staffId: scope.kind === "none" ? undefined : scopedStaffId(scope, params.staff),
+    staffOptions,
+    tableContext: { timezone, now, query: effectiveQuery, scope },
   };
 }
 
 /** Query string for links that keep the current filters (and override some). */
 export function queryString(
   params: ResolvedParams,
-  overrides: Partial<Record<"from" | "to" | "granularity" | "groupBy", string>> = {},
+  overrides: Partial<Record<"from" | "to" | "granularity" | "groupBy" | "staff", string>> = {},
 ): string {
   const merged = { ...params, ...overrides };
-  return new URLSearchParams({
+  const q = new URLSearchParams({
     from: merged.from,
     to: merged.to,
     granularity: merged.granularity,
     groupBy: merged.groupBy,
-  }).toString();
+  });
+  if (merged.staff) q.set("staff", merged.staff);
+  return q.toString();
 }

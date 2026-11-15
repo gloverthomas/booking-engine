@@ -7,7 +7,11 @@ import { requireAccess } from "@/server/auth/access";
 import { can } from "@/server/auth/permissions";
 import { loadBusinessContext } from "@/server/reports/context";
 import { reportScopeFor } from "@/server/reports/scope";
-import { getPerformance, type MetricResult, type PerformanceRow } from "@/server/targets/performance";
+import {
+  getPerformance,
+  type MetricResult,
+  type PerformanceRow,
+} from "@/server/targets/performance";
 import { performanceQuerySchema } from "@/server/targets/schemas";
 import { shiftAnchor } from "@/server/targets/progress";
 import { formatTargetValue, TARGET_METRIC_LABEL, type TargetMetric } from "@/server/targets/units";
@@ -32,7 +36,10 @@ export default function TeamPage({ searchParams }: { searchParams: SearchParams 
   );
 }
 
-const METRICS: ReadonlyArray<{ key: keyof Pick<PerformanceRow, "revenue" | "bookings" | "utilisation" | "rebookRate">; metric: TargetMetric }> = [
+const METRICS: ReadonlyArray<{
+  key: keyof Pick<PerformanceRow, "revenue" | "bookings" | "utilisation" | "rebookRate">;
+  metric: TargetMetric;
+}> = [
   { key: "revenue", metric: "revenue" },
   { key: "bookings", metric: "bookings" },
   { key: "utilisation", metric: "utilisation" },
@@ -101,17 +108,26 @@ async function Loaded({ searchParams }: { searchParams: SearchParams }) {
         {(["week", "month"] as const).map((p) => (
           <Link
             key={p}
-            className={buttonClasses({ variant: query.period === p ? "primary" : "secondary", size: "sm" })}
+            className={buttonClasses({
+              variant: query.period === p ? "primary" : "secondary",
+              size: "sm",
+            })}
             href={href(p, report.range.from)}
             aria-current={query.period === p ? "page" : undefined}
           >
             {p === "week" ? "Week" : "Month"}
           </Link>
         ))}
-        <Link className={buttonClasses({ variant: "secondary", size: "sm" })} href={href(query.period, shiftAnchor(report.range, -1))}>
+        <Link
+          className={buttonClasses({ variant: "secondary", size: "sm" })}
+          href={href(query.period, shiftAnchor(report.range, -1))}
+        >
           Previous
         </Link>
-        <Link className={buttonClasses({ variant: "secondary", size: "sm" })} href={href(query.period, shiftAnchor(report.range, 1))}>
+        <Link
+          className={buttonClasses({ variant: "secondary", size: "sm" })}
+          href={href(query.period, shiftAnchor(report.range, 1))}
+        >
           Next
         </Link>
         <h2 className="ml-2 text-lg font-semibold">
@@ -127,7 +143,10 @@ async function Loaded({ searchParams }: { searchParams: SearchParams }) {
       ) : (
         <ul className="grid gap-4 lg:grid-cols-2">
           {rows.map((row) => (
-            <li key={row.staffId ?? "business"} className="rounded-card border border-line bg-surface p-4">
+            <li
+              key={row.staffId ?? "business"}
+              className="rounded-card border border-line bg-surface p-4"
+            >
               <h3 className="text-lg font-semibold">{row.name}</h3>
               <dl className="mt-3 flex flex-col gap-4">
                 {METRICS.map(({ key, metric }) => (
@@ -152,9 +171,9 @@ async function Loaded({ searchParams }: { searchParams: SearchParams }) {
         </ul>
       )}
       <p className="text-sm text-ink-muted">
-        Utilisation is booked hours over rostered hours. Rebook rate counts completed visits whose client booked
-        again within 28 days, once those 28 days have passed. The tick on each bar shows how far through the
-        period we are.
+        Utilisation is booked hours over rostered hours. Rebook rate counts completed visits whose
+        client booked again within 28 days, once those 28 days have passed. The tick on each bar
+        shows how far through the period we are.
       </p>
     </div>
   );
@@ -178,7 +197,9 @@ function MetricBlock({
       <dt className="eyebrow">{TARGET_METRIC_LABEL[metric]}</dt>
       <dd className="flex flex-col gap-1">
         <span className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-2xl font-semibold tabular-nums">{actualText(metric, result.actual)}</span>
+          <span className="text-2xl font-semibold tabular-nums">
+            {actualText(metric, result.actual)}
+          </span>
           {result.target !== null ? (
             <span className="text-ink-muted">of {formatTargetValue(metric, result.target)}</span>
           ) : (

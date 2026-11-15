@@ -35,8 +35,7 @@ export async function GET(request: Request): Promise<Response> {
     weekStart,
     ...(ids === "all" ? {} : { staffIds: ids }),
   });
-  const body =
-    parsed.data.kind === "entries" ? entriesCsv(sheets, timezone) : summaryCsv(sheets);
+  const body = parsed.data.kind === "entries" ? entriesCsv(sheets, timezone) : summaryCsv(sheets);
   return new Response(body, {
     headers: {
       "content-type": "text/csv; charset=utf-8",

@@ -10,9 +10,10 @@ export const metadata = { title: "Clients report" };
 export default function ClientsReportPage({ searchParams }: { searchParams: SearchParams }) {
   return (
     <ReportPageShell
+      access="all"
       searchParams={searchParams}
       render={async (ctx) => {
-        const tableCtx = { timezone: ctx.timezone, now: ctx.now, query: ctx.query };
+        const tableCtx = ctx.tableContext;
         const [report, top, lapsed] = await Promise.all([
           getClientsReport(ctx.db, {
             timezone: ctx.timezone,
