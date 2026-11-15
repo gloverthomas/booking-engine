@@ -1,42 +1,19 @@
-import type { StaffRole } from "../contracts";
-import { requireOwner } from "./index";
-import { can, type Permission } from "./permissions";
+import { assertAccess, type AccessSession } from "./access-core";
+import { requireAccessSession } from "./index";
+import type { Permission } from "./permissions";
+
+export { AccessDeniedError, type AccessSession } from "./access-core";
 
 /**
- * OWNER: workstream W1 (staff & access). Replace this stub with the real lookup (session -> staff row ->
- * role), keeping the signatures. Every admin route and action calls requireAccess(permission) instead of
- * requireOwner(), then scopes its queries with `session.staffId` when the role cannot see everyone.
+ * Every admin route and action calls requireAccess(permission) instead of requireOwner(), then scopes
+ * its queries with `session.staffId` when the role cannot see everyone (`!seesAllStaff(role)`).
+ * Redirects to /login when signed out; throws AccessDeniedError when the role lacks the permission.
  */
-export interface AccessSession {
-  userId: string;
-  email: string;
-  /** The signed-in person's staff row. Null only for an owner who has no staff row yet. */
-  staffId: string | null;
-  role: StaffRole;
-}
-
-/** Redirects to /login when signed out; throws AccessDeniedError when the role lacks the permission. */
 export async function requireAccess(permission: Permission): Promise<AccessSession> {
-  const owner = await requireOwner();
-  const session: AccessSession = {
-    userId: owner.userId,
-    email: owner.email,
-    staffId: null,
-    role: "owner",
-  };
-  if (!can(session.role, permission)) throw new AccessDeniedError(permission);
-  return session;
+  return assertAccess(await requireAccessSession(), permission);
 }
 
-/** Same as requireAccess without a permission check. */
+/** Same as requireAccess without a permission check: any allowed-in team member. */
 export async function requireStaffSession(): Promise<AccessSession> {
-  const owner = await requireOwner();
-  return { userId: owner.userId, email: owner.email, staffId: null, role: "owner" };
-}
-
-export class AccessDeniedError extends Error {
-  constructor(readonly permission: Permission) {
-    super(`Not allowed: ${permission}`);
-    this.name = "AccessDeniedError";
-  }
+  return requireAccessSession();
 }

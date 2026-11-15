@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { GoogleSignInButton } from "@/components/admin/shell/google-sign-in-button";
 import { ADMIN_HOME } from "@/components/admin/shell/nav-config";
 import { Alert } from "@/components/ui/alert";
-import { getOwnerSession } from "@/server/auth";
+import { getAccessSession } from "@/server/auth";
 import { loginErrorMessage } from "@/server/auth/owners";
 import { signInWithGoogleAction } from "./actions";
 
@@ -36,7 +36,8 @@ export default function LoginPage({ searchParams }: { searchParams: SearchParams
           <SignInPanel searchParams={searchParams} />
         </Suspense>
         <p className="text-sm text-ink-muted">
-          Only the owner&apos;s Google account can sign in. Clients book on the public booking page.
+          Only the owner and the team they have added can sign in, each with their own Google
+          account. Clients book on the public booking page.
         </p>
       </section>
     </main>
@@ -44,7 +45,7 @@ export default function LoginPage({ searchParams }: { searchParams: SearchParams
 }
 
 async function SignInPanel({ searchParams }: { searchParams: SearchParams }) {
-  const [params, session] = await Promise.all([searchParams, getOwnerSession()]);
+  const [params, session] = await Promise.all([searchParams, getAccessSession()]);
   if (session) redirect(ADMIN_HOME);
   const message = loginErrorMessage(first(params.error));
   return (

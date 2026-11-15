@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { createTestDb } from "../helpers/test-db";
-import { seedBasics } from "../helpers/factories";
+import { createStaff, seedBasics } from "../helpers/factories";
 import { integrationAccount } from "@/db/schema";
 import {
   configuredProvidersFromEnv,
   getIntegrationCards,
+  listGoogleByStylist,
 } from "@/server/admin-foundation/integrations";
 import { parseEnv } from "@/lib/env";
 
@@ -48,7 +49,7 @@ describe("getIntegrationCards", () => {
     const google = cards.find((c) => c.provider === "google");
     expect(google).toMatchObject({
       status: "disconnected",
-      connectHref: "/api/integrations/google/connect",
+      connectHref: null, // Google is linked per stylist, from the Staff and Integrations pages
       lastSyncAt: null,
       lastError: null,
     });
@@ -70,9 +71,11 @@ describe("getIntegrationCards", () => {
 
   test("surfaces status, account, last sync and last error from integration_account", async () => {
     const lastSyncAt = new Date("2030-01-01T00:00:00Z");
+    const { stylist } = await seedBasics(h.db);
     await h.db.insert(integrationAccount).values([
       {
         businessId,
+        staffId: stylist.id,
         provider: "google",
         status: "connected",
         externalAccountId: "ryan@example.com",
@@ -89,7 +92,6 @@ describe("getIntegrationCards", () => {
     const cards = await getIntegrationCards(h.db, { stripe: true, google: true, xero: true });
     expect(cards.find((c) => c.provider === "google")).toMatchObject({
       status: "connected",
-      externalAccountId: "ryan@example.com",
       lastSyncAt,
     });
     expect(cards.find((c) => c.provider === "xero")).toMatchObject({
@@ -101,11 +103,38 @@ describe("getIntegrationCards", () => {
   test("never exposes tokens", async () => {
     await h.db.insert(integrationAccount).values({
       businessId,
-      provider: "google",
+      provider: "xero",
       status: "connected",
       encryptedTokens: "ciphertext",
     });
     const cards = await getIntegrationCards(h.db, { stripe: true, google: true, xero: true });
     expect(JSON.stringify(cards)).not.toContain("ciphertext");
+  });
+
+  test("the Google card rolls up the stylists: errors win, then connected, and Xero is unaffected", async () => {
+    const a = await createStaff(h.db, businessId, { name: "A", email: "a@example.com" });
+    const b = await createStaff(h.db, businessId, { name: "B", email: "b@example.com" });
+    await h.db.insert(integrationAccount).values([
+      { businessId, staffId: a.id, provider: "google", status: "connected" },
+      { businessId, staffId: b.id, provider: "google", status: "error", lastError: "Revoked" },
+    ]);
+    const cards = await getIntegrationCards(h.db, { stripe: true, google: true, xero: true });
+    expect(cards.find((c) => c.provider === "google")).toMatchObject({
+      status: "error",
+      lastError: "Revoked",
+    });
+    expect(cards.find((c) => c.provider === "xero")?.status).toBe("disconnected");
+  });
+
+  test("listGoogleByStylist returns active people only, with their own link status", async () => {
+    const a = await createStaff(h.db, businessId, { name: "A", email: "a@example.com" });
+    await createStaff(h.db, businessId, { name: "Gone", email: "g@example.com", active: false });
+    await h.db
+      .insert(integrationAccount)
+      .values({ businessId, staffId: a.id, provider: "google", status: "connected" });
+    const people = await listGoogleByStylist(h.db);
+    expect(people.map((p) => p.name)).toEqual(["A", "Ryan"]);
+    expect(people[0].google?.status).toBe("connected");
+    expect(people[1].google).toBeNull();
   });
 });

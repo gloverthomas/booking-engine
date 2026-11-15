@@ -5,7 +5,7 @@ import { Alert } from "@/components/ui";
 import { PageHeader } from "@/components/ui/page-header";
 import { parseIntegrationBanner } from "@/server/admin-foundation/integration-banner";
 import { getAdminSettings } from "@/server/admin-foundation/settings-admin";
-import { requireOwner } from "@/server/auth";
+import { requireAccess } from "@/server/auth/access";
 import { SettingsForm } from "./_components/settings-form";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -23,7 +23,7 @@ export default function SettingsPage({ searchParams }: SettingsPageProps) {
 }
 
 async function SettingsBody({ searchParams }: SettingsPageProps) {
-  await requireOwner();
+  await requireAccess("settings.edit");
   const banner = parseIntegrationBanner(await searchParams);
   const { settings } = await getAdminSettings(getDb());
   return (

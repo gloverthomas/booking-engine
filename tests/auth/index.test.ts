@@ -12,6 +12,12 @@ vi.mock("next/navigation", () => ({
   unstable_rethrow: (error: unknown) => rethrow(error),
 }));
 vi.mock("@/db/client", () => ({ getDb: () => ({}) }));
+const resolveAccess = vi.fn();
+vi.mock("@/server/auth/resolve-access", () => ({
+  resolveAccess: (db: unknown, user: unknown, owners: ReadonlySet<string>) =>
+    resolveAccess(db, user, owners),
+  isActiveStaffEmail: async () => false,
+}));
 vi.mock("@/server/auth/auth", () => ({
   createAuth: () => ({ api: { getSession } }),
 }));
@@ -31,6 +37,13 @@ describe("requireOwner / getOwnerSession wiring", () => {
   beforeEach(() => {
     vi.resetModules();
     getSession.mockReset();
+    resolveAccess.mockReset();
+    resolveAccess.mockImplementation(async (_db, user: { id: string; email: string }) => ({
+      userId: user.id,
+      email: user.email,
+      staffId: "s1",
+      role: "owner",
+    }));
     rethrow.mockReset();
     redirectMock.mockClear();
     for (const key of ENV_KEYS) saved[key] = process.env[key];
@@ -64,10 +77,38 @@ describe("requireOwner / getOwnerSession wiring", () => {
     await expect(getOwnerSession()).resolves.toBeNull();
   });
 
-  test("treats a signed-in non-owner as signed out", async () => {
+  test("a signed-in person who is not allowed in is sent to /login with a reason", async () => {
     getSession.mockResolvedValue({ user: { id: "u2", email: "stranger@example.com" } });
-    const { requireOwner } = await import("@/server/auth");
-    await expect(requireOwner()).rejects.toThrow("NEXT_REDIRECT:/login");
+    resolveAccess.mockResolvedValue(null);
+    const { requireOwner, requireAccessSession, getAccessSession } = await import("@/server/auth");
+    await expect(requireOwner()).rejects.toThrow("NEXT_REDIRECT:/login?error=not_authorised");
+    await expect(requireAccessSession()).rejects.toThrow(
+      "NEXT_REDIRECT:/login?error=not_authorised",
+    );
+    await expect(getAccessSession()).resolves.toBeNull();
+  });
+
+  test("passes the OWNER_EMAILS allow-list to the resolver", async () => {
+    getSession.mockResolvedValue({ user: { id: "u1", email: "ryan@example.com" } });
+    const { requireAccessSession } = await import("@/server/auth");
+    await requireAccessSession();
+    expect([...resolveAccess.mock.calls[0][2]]).toEqual(["ryan@example.com"]);
+  });
+
+  test("requireOwner means role owner: a manager is denied (not redirected), but is an access session", async () => {
+    getSession.mockResolvedValue({ user: { id: "u3", email: "mia@example.com" } });
+    resolveAccess.mockResolvedValue({
+      userId: "u3",
+      email: "mia@example.com",
+      staffId: "s3",
+      role: "manager",
+    });
+    const { requireOwner, getOwnerSession, requireAccessSession } = await import("@/server/auth");
+    const { AccessDeniedError } = await import("@/server/auth/access-core");
+    await expect(requireOwner()).rejects.toBeInstanceOf(AccessDeniedError);
+    await expect(getOwnerSession()).resolves.toBeNull();
+    await expect(requireAccessSession()).resolves.toMatchObject({ role: "manager" });
+    expect(redirectMock).not.toHaveBeenCalled();
   });
 
   test("getOwnerSession logs and returns null when the lookup fails", async () => {

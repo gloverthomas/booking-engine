@@ -4,7 +4,7 @@ import { nextCookies } from "better-auth/next-js";
 import { eq } from "drizzle-orm";
 import * as authSchema from "@/db/auth-schema";
 import type { Db } from "@/server/db-types";
-import { evaluateIdentity } from "./owners";
+import { evaluateIdentityWithStaff } from "./owners";
 
 const SESSION_DAYS = 30;
 const SESSION_REFRESH_AFTER_HOURS = 24;
@@ -18,21 +18,26 @@ export interface AuthConfig {
   google: { clientId: string; clientSecret: string };
   /** Read on every sign-in and session creation, so allow-list changes apply immediately. */
   ownerEmails: () => ReadonlySet<string>;
+  /** True for an email that belongs to an active staff member. Read on every sign-in too. Omitted = owners only. */
+  isStaffEmail?: (email: string) => Promise<boolean>;
   secureCookies: boolean;
 }
 
 /**
- * Better Auth with Google as the only way in, gated by the owner allow-list.
+ * Better Auth with Google as the only way in, gated by the allow-list: OWNER_EMAILS plus active staff.
  *
  * Defence in depth, because letting a stranger into the admin is the one thing that must not happen:
- *  1. `user.validateUserInfo` rejects non-owner identities before any account is created or linked.
- *  2. `databaseHooks.user.create.before` refuses to insert a user row for a non-owner.
- *  3. `databaseHooks.session.create.before` refuses to mint a session for a user who is no longer an owner.
- *  4. `requireOwner()` re-checks the allow-list on every request (see guard.ts).
+ *  1. `user.validateUserInfo` rejects identities outside the allow-list before any account is created or linked.
+ *  2. `databaseHooks.user.create.before` refuses to insert a user row for them.
+ *  3. `databaseHooks.session.create.before` refuses to mint a session for someone no longer allowed in.
+ *  4. `requireAccess()` re-resolves the person's staff row on every request (see guard.ts).
  */
 export function createAuth(config: AuthConfig) {
-  const admits = (email: string | null | undefined, emailVerified?: boolean | null) =>
-    evaluateIdentity({ email, emailVerified }, config.ownerEmails()) === null;
+  const isStaffEmail = config.isStaffEmail ?? (async () => false);
+  const evaluate = (email: string | null | undefined, emailVerified?: boolean | null) =>
+    evaluateIdentityWithStaff({ email, emailVerified }, config.ownerEmails(), isStaffEmail);
+  const admits = async (email: string | null | undefined, emailVerified?: boolean | null) =>
+    (await evaluate(email, emailVerified)) === null;
 
   return betterAuth({
     appName: "Ryan Kennedy Hairdressing Admin",
@@ -56,11 +61,8 @@ export function createAuth(config: AuthConfig) {
       accountLinking: { enabled: true, trustedProviders: ["google"] },
     },
     user: {
-      validateUserInfo: ({ user }) => {
-        const rejection = evaluateIdentity(
-          { email: user.email, emailVerified: user.emailVerified },
-          config.ownerEmails(),
-        );
+      validateUserInfo: async ({ user }) => {
+        const rejection = await evaluate(user.email, user.emailVerified);
         return rejection ?? undefined;
       },
     },
@@ -68,7 +70,7 @@ export function createAuth(config: AuthConfig) {
       user: {
         create: {
           before: async (user) => {
-            if (!admits(user.email, user.emailVerified)) return false;
+            if (!(await admits(user.email, user.emailVerified))) return false;
           },
         },
       },
@@ -76,7 +78,7 @@ export function createAuth(config: AuthConfig) {
         create: {
           before: async (session) => {
             const email = await lookupEmail(config.db, session.userId);
-            if (!admits(email)) return false;
+            if (!(await admits(email))) return false;
           },
         },
       },

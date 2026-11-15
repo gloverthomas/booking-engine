@@ -58,13 +58,34 @@ export function evaluateIdentity(
   return null;
 }
 
+/**
+ * Like evaluateIdentity, but also admits anyone whose email belongs to an active staff member.
+ * `isActiveStaffEmail` is read on every sign-in, so removing or deactivating a person takes effect at once.
+ */
+export async function evaluateIdentityWithStaff(
+  claim: IdentityClaim,
+  owners: ReadonlySet<string>,
+  isActiveStaffEmail: (email: string) => Promise<boolean>,
+): Promise<IdentityRejection | null> {
+  const ownerRejection = evaluateIdentity(claim, owners);
+  if (ownerRejection === null) return null;
+  if (ownerRejection.error !== NOT_AUTHORISED_CODE || !claim.email) return ownerRejection;
+  if (!(await isActiveStaffEmail(normaliseEmail(claim.email)))) return ownerRejection;
+  return claim.emailVerified === false
+    ? {
+        error: EMAIL_NOT_VERIFIED_CODE,
+        errorDescription: "Google has not verified this email address.",
+      }
+    : null;
+}
+
 /** Plain-English message for the error code Better Auth puts on the login URL. */
 export function loginErrorMessage(code: string | undefined): string | null {
   if (!code) return null;
   switch (code) {
     case NOT_AUTHORISED_CODE:
     case "unable_to_create_user":
-      return "That Google account is not authorised to use this admin. Sign in with the owner account, or ask the owner to add yours.";
+      return "That Google account is not authorised to use this admin. Sign in with the Google account the owner added, or ask them to add yours.";
     case EMAIL_NOT_VERIFIED_CODE:
       return "Google says that email address is not verified, so we can't let it in.";
     case "access_denied":
