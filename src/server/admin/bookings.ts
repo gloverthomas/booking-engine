@@ -11,14 +11,24 @@ import {
 } from "@/db/schema";
 import type { Db } from "../db-types";
 import {
+  assertCan,
+  assertCanViewCalendar,
+  scopeCondition,
+  viewerCaps,
+  type AccessContext,
+} from "./access";
+import {
   clientMatches,
   fullName,
   getBusinessContext,
   loadServiceNames,
+  loadStaffDirectory,
   lowerOf,
   netPaidCents,
+  staffById,
   upperOf,
 } from "./shared";
+import { UNKNOWN_STAFF_COLOUR } from "./staff-colour";
 import type {
   BookingDetail,
   BookingDetailPayment,
@@ -47,11 +57,15 @@ function toPaymentView(p: typeof payment.$inferSelect): BookingDetailPayment {
   };
 }
 
+/** A stylist's request for someone else's booking is answered exactly like a booking that does not exist. */
 export async function getBookingDetail(
   db: Db,
   bookingId: string,
+  access: AccessContext,
   now: Date = new Date(),
 ): Promise<BookingDetail | null> {
+  assertCanViewCalendar(access);
+  const caps = viewerCaps(access);
   const [row] = await db
     .select({
       booking,
@@ -63,9 +77,11 @@ export async function getBookingDetail(
     .innerJoin(client, eq(client.id, booking.clientId))
     .innerJoin(location, eq(location.id, booking.locationId))
     .innerJoin(staff, eq(staff.id, booking.staffId))
-    .where(eq(booking.id, bookingId));
+    .where(and(eq(booking.id, bookingId), scopeCondition(booking.staffId, access)));
   if (!row) return null;
   const b = row.booking;
+  const directory = await loadStaffDirectory(db);
+  const staffColour = staffById(directory).get(b.staffId)?.colour ?? UNKNOWN_STAFF_COLOUR;
 
   const [services, payments, messages, audit] = await Promise.all([
     db
@@ -93,6 +109,7 @@ export async function getBookingDetail(
   const paidCents = netPaidCents(payments);
   const isLive = LIVE_STATUSES.includes(b.status);
   const isConfirmed = b.status === "confirmed";
+  const canReassign = caps.reassign && isConfirmed && b.during.start.getTime() > now.getTime();
 
   return {
     id: b.id,
@@ -106,7 +123,7 @@ export async function getBookingDetail(
     cancelReason: b.cancelReason,
     cancelledAt: b.cancelledAt?.toISOString() ?? null,
     location: { id: b.locationId, name: row.locationName },
-    staff: { id: b.staffId, name: row.staffName },
+    staff: { id: b.staffId, name: row.staffName, colour: staffColour },
     client: {
       id: row.client.id,
       name: fullName(row.client.firstName, row.client.lastName),
@@ -145,12 +162,20 @@ export async function getBookingDetail(
       at: a.at.toISOString(),
     })),
     allowed: {
-      move: isLive,
-      cancel: isLive,
-      noShow: isConfirmed && b.during.start.getTime() <= now.getTime(),
-      checkout: isConfirmed,
-      resend: isConfirmed,
+      move: isLive && caps.editBookings,
+      cancel: isLive && caps.cancelBookings,
+      noShow: isConfirmed && caps.editBookings && b.during.start.getTime() <= now.getTime(),
+      checkout: isConfirmed && caps.checkout,
+      resend: isConfirmed && caps.editBookings,
+      reassign: canReassign,
+      refund: caps.refund,
     },
+    reassignOptions: canReassign
+      ? directory
+          .filter((s) => s.active && s.id !== b.staffId)
+          .map((s) => ({ id: s.id, name: s.name }))
+          .sort((a, c) => a.name.localeCompare(c.name))
+      : [],
   };
 }
 
@@ -161,10 +186,13 @@ export interface ListBookingsOptions {
   now?: Date;
 }
 
+/** Bookings newest-relevant first. A stylist only ever gets their own. */
 export async function listBookings(
   db: Db,
+  access: AccessContext,
   options: ListBookingsOptions,
 ): Promise<BookingListRow[]> {
+  assertCanViewCalendar(access);
   const now = options.now ?? new Date();
   const limit = options.limit ?? 100;
 
@@ -199,19 +227,29 @@ export async function listBookings(
       firstName: client.firstName,
       lastName: client.lastName,
       locationName: location.name,
+      staffId: booking.staffId,
     })
     .from(booking)
     .innerJoin(client, eq(client.id, booking.clientId))
     .innerJoin(location, eq(location.id, booking.locationId))
-    .where(and(byFilter.where, options.q ? clientMatches(options.q) : undefined))
+    .where(
+      and(
+        byFilter.where,
+        scopeCondition(booking.staffId, access),
+        options.q ? clientMatches(options.q) : undefined,
+      ),
+    )
     .orderBy(byFilter.order)
     .limit(limit);
 
-  const names = await loadServiceNames(
-    db,
-    rows.map((r) => r.id),
-  );
-  return rows.map((r) => toListRow(r, names.get(r.id) ?? []));
+  const [names, directory] = await Promise.all([
+    loadServiceNames(
+      db,
+      rows.map((r) => r.id),
+    ),
+    loadStaffDirectory(db).then(staffById),
+  ]);
+  return rows.map((r) => toListRow(r, names.get(r.id) ?? [], directory));
 }
 
 export function toListRow(
@@ -224,9 +262,12 @@ export function toListRow(
     firstName: string;
     lastName: string;
     locationName: string;
+    staffId: string;
   },
   services: string[],
+  directory: ReadonlyMap<string, { name: string; colour: string }>,
 ): BookingListRow {
+  const stylist = directory.get(r.staffId);
   return {
     id: r.id,
     start: r.during.start.toISOString(),
@@ -237,6 +278,9 @@ export function toListRow(
     locationName: r.locationName,
     services,
     totalCents: r.totalCents,
+    staffId: r.staffId,
+    staffName: stylist?.name ?? "Former team member",
+    staffColour: stylist?.colour ?? UNKNOWN_STAFF_COLOUR,
   };
 }
 
@@ -244,8 +288,10 @@ export function toListRow(
 export async function getCheckoutView(
   db: Db,
   bookingId: string,
+  access: AccessContext,
   _now: Date = new Date(),
 ): Promise<CheckoutView | null> {
+  assertCan(access, "checkout");
   const [row] = await db
     .select({
       id: booking.id,
@@ -259,7 +305,7 @@ export async function getCheckoutView(
     .from(booking)
     .innerJoin(client, eq(client.id, booking.clientId))
     .innerJoin(location, eq(location.id, booking.locationId))
-    .where(eq(booking.id, bookingId));
+    .where(and(eq(booking.id, bookingId), scopeCondition(booking.staffId, access)));
   if (!row) return null;
 
   const [services, payments, ctx] = await Promise.all([

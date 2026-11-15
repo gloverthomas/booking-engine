@@ -1,24 +1,23 @@
 import type { NextRequest } from "next/server";
 import { connection } from "next/server";
 import { z } from "zod";
-import { getDb } from "@/db/client";
-import { getOwnerSession } from "@/server/auth";
+import { jsonNotFound, jsonOk, withReadContext } from "@/server/admin/api";
 import { getBookingDetail } from "@/server/admin/bookings";
 
-/** GET /bookings/:bookingId/detail : everything the booking drawer shows. */
+/**
+ * GET /bookings/:bookingId/detail : everything the booking drawer shows. A stylist asking for someone
+ * else's booking gets the same 404 as for a booking that does not exist.
+ */
 export async function GET(
   _request: NextRequest,
   ctx: RouteContext<"/bookings/[bookingId]/detail">,
 ) {
   await connection();
-  if (!(await getOwnerSession())) {
-    return Response.json({ error: "Not signed in" }, { status: 401 });
-  }
   const { bookingId } = await ctx.params;
-  if (!z.uuid().safeParse(bookingId).success) {
-    return Response.json({ error: "Booking not found" }, { status: 404 });
-  }
-  const detail = await getBookingDetail(getDb(), bookingId);
-  if (!detail) return Response.json({ error: "Booking not found" }, { status: 404 });
-  return Response.json({ booking: detail }, { headers: { "Cache-Control": "private, no-store" } });
+  return withReadContext(["calendar.viewAll", "calendar.viewOwn"], async ({ db, access }) => {
+    if (!z.uuid().safeParse(bookingId).success) return jsonNotFound("Booking not found");
+    const detail = await getBookingDetail(db, bookingId, access);
+    if (!detail) return jsonNotFound("Booking not found");
+    return jsonOk({ booking: detail });
+  });
 }

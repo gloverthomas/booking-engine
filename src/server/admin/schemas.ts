@@ -48,6 +48,12 @@ export const cancelSchema = z.object({
   reason: trimmed(500).optional(),
 });
 
+export const reassignSchema = z.object({
+  bookingId: id,
+  newStaffId: id,
+  notifyClient: z.boolean(),
+});
+
 export const bookingIdSchema = z.object({ bookingId: id });
 
 export const refundSchema = z.object({
@@ -89,7 +95,12 @@ export const calendarQuerySchema = z
     from: isoDate,
     to: isoDate,
     locationId: id.optional(),
-    staffId: id.optional(),
+    /** Comma-separated stylist ids to show. Absent means everyone the viewer may see. */
+    staffIds: z
+      .string()
+      .transform((value) => value.split(",").filter((part) => part !== ""))
+      .pipe(z.array(id).max(50))
+      .optional(),
   })
   .refine((v) => v.to.getTime() > v.from.getTime(), { message: "Invalid date range" })
   .refine((v) => v.to.getTime() - v.from.getTime() <= MAX_CALENDAR_SPAN_MS, {

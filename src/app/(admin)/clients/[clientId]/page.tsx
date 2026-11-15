@@ -3,12 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { z } from "zod";
-import { getDb } from "@/db/client";
 import { ClientProfile } from "@/components/admin/clients/ClientProfile";
 import { Skeleton } from "@/components/admin/calendar/ui-shim";
 import { getClientProfile } from "@/server/admin/clients";
+import { getReadContext } from "@/server/admin/session";
 import { getBusinessContext } from "@/server/admin/shared";
-import { requireOwner } from "@/server/auth";
 
 export const metadata: Metadata = { title: "Client" };
 
@@ -32,18 +31,17 @@ function ClientFallback() {
 
 async function ClientContent({ params }: { params: PageProps<"/clients/[clientId]">["params"] }) {
   await connection();
-  await requireOwner();
+  const { db, access, caps } = await getReadContext("clients.view");
   const { clientId } = await params;
   if (!z.uuid().safeParse(clientId).success) notFound();
 
-  const db = getDb();
   const [profile, { timezone }] = await Promise.all([
-    getClientProfile(db, clientId),
+    getClientProfile(db, clientId, access),
     getBusinessContext(db),
   ]);
   if (!profile) notFound();
   // A merged-away record sends you to the client it became.
   if (profile.mergedIntoId) redirect(`/clients/${profile.mergedIntoId}`);
 
-  return <ClientProfile profile={profile} timezone={timezone} />;
+  return <ClientProfile profile={profile} timezone={timezone} caps={caps} />;
 }

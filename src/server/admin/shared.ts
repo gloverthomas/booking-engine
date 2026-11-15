@@ -1,8 +1,9 @@
 import { and, asc, ilike, inArray, or, sql, type AnyColumn, type SQL } from "drizzle-orm";
-import { bookingService, business, client } from "@/db/schema";
+import { bookingService, business, client, staff } from "@/db/schema";
 import { formatRange, type TimeRange } from "@/db/tstzrange";
 import { parseSettings, type BusinessSettings } from "../settings";
 import type { Db } from "../db-types";
+import { assignStaffColours, UNKNOWN_STAFF_COLOUR } from "./staff-colour";
 
 export function fullName(firstName: string, lastName: string): string {
   return `${firstName} ${lastName}`.trim();
@@ -55,6 +56,35 @@ export async function getBusinessContext(db: Db): Promise<BusinessContext> {
   const [row] = await db.select().from(business).limit(1);
   if (!row) throw new Error("No business has been set up yet");
   return { businessId: row.id, timezone: row.timezone, settings: parseSettings(row.settings) };
+}
+
+export interface StaffEntry {
+  id: string;
+  name: string;
+  colour: string;
+  active: boolean;
+}
+
+/**
+ * Every stylist (active or not) with a resolved calendar colour. Ordered by creation so the palette
+ * fallback is stable. One small query; the team is a handful of people.
+ */
+export async function loadStaffDirectory(db: Db): Promise<StaffEntry[]> {
+  const rows = await db
+    .select({ id: staff.id, name: staff.name, colour: staff.colour, active: staff.active })
+    .from(staff)
+    .orderBy(asc(staff.createdAt), asc(staff.name), asc(staff.id));
+  const colours = assignStaffColours(rows);
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    active: r.active,
+    colour: colours.get(r.id) ?? UNKNOWN_STAFF_COLOUR,
+  }));
+}
+
+export function staffById(directory: readonly StaffEntry[]): Map<string, StaffEntry> {
+  return new Map(directory.map((s) => [s.id, s]));
 }
 
 export function upperOf(column: AnyColumn): SQL<string> {
