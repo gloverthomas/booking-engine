@@ -75,6 +75,10 @@ import { POST as reschedule } from "@/app/api/v1/bookings/[id]/reschedule/route"
 import { GET as searchClients } from "@/app/api/v1/clients/route";
 import { GET as getClient } from "@/app/api/v1/clients/[id]/route";
 import { GET as getMe } from "@/app/api/v1/me/route";
+import { GET as getRoster } from "@/app/api/v1/roster/route";
+import { GET as getClock } from "@/app/api/v1/timesheets/clock/route";
+import { POST as clockIn } from "@/app/api/v1/timesheets/clock/in/route";
+import { POST as clockOut } from "@/app/api/v1/timesheets/clock/out/route";
 import { DELETE as removeDevice, POST as addDevice } from "@/app/api/v1/devices/route";
 import { deviceToken } from "@/db/schema";
 import { GET as terminalConfig } from "@/app/api/v1/payments/terminal/route";
@@ -579,5 +583,146 @@ describe("push devices", () => {
   test("signed out is 401", async () => {
     expect((await addDevice(req("/x", { token: TOKEN }))).status).toBe(401);
     expect((await removeDevice(del({ token: TOKEN }))).status).toBe(401);
+  });
+});
+
+describe("roster", () => {
+  const monday = "2026-11-02";
+
+  test("the owner sees every active stylist; each day lists where and when", async () => {
+    as("owner", w.staffId);
+    const res = await getRoster(req(`/api/v1/roster?week=${monday}`));
+    expect(res.status).toBe(200);
+    const { data } = await json(res);
+    expect(data).toMatchObject({
+      weekStart: monday,
+      timezone: "Australia/Melbourne",
+      scope: "all",
+      canEdit: true,
+    });
+    expect(data.dates).toHaveLength(7);
+    expect(data.rows.map((r: { name: string }) => r.name).sort()).toEqual(["Alex", "Ryan"]);
+    const ryan = data.rows.find((r: { staffId: string }) => r.staffId === w.staffId);
+    expect(ryan.days).toHaveLength(7);
+    expect(ryan.days[0].entries[0]).toMatchObject({
+      locationId: w.locationId,
+      kind: "weekly",
+      ranges: [{ startMinute: 540, endMinute: 1020 }],
+    });
+    const alex = data.rows.find((r: { staffId: string }) => r.staffId === otherStaffId);
+    expect(alex.days.every((d: { entries: unknown[] }) => d.entries.length === 0)).toBe(true);
+  });
+
+  test("any date in the week gives that week's Monday; no week means this week", async () => {
+    as("owner", w.staffId);
+    expect(
+      (await json(await getRoster(req("/api/v1/roster?week=2026-11-05")))).data.weekStart,
+    ).toBe(monday);
+    const now = (await json(await getRoster(req("/api/v1/roster")))).data;
+    expect(now.dates).toContain(now.today);
+  });
+
+  test("a stylist sees only their own row and cannot edit", async () => {
+    as("stylist", w.staffId);
+    const { data } = await json(await getRoster(req(`/api/v1/roster?week=${monday}`)));
+    expect(data.scope).toBe("own");
+    expect(data.canEdit).toBe(false);
+    expect(data.rows.map((r: { staffId: string }) => r.staffId)).toEqual([w.staffId]);
+  });
+
+  test("a stylist with no staff profile gets an empty roster, not everyone's", async () => {
+    as("stylist", null);
+    const { data } = await json(await getRoster(req(`/api/v1/roster?week=${monday}`)));
+    expect(data.rows).toEqual([]);
+  });
+
+  test("reception sees everyone", async () => {
+    as("reception", null);
+    const { data } = await json(await getRoster(req(`/api/v1/roster?week=${monday}`)));
+    expect(data.rows).toHaveLength(2);
+  });
+
+  test("a bad week is a 422; signed out is 401", async () => {
+    as("owner", w.staffId);
+    expect((await getRoster(req("/api/v1/roster?week=next-tuesday"))).status).toBe(422);
+    state.viewer = null;
+    expect((await getRoster(req("/api/v1/roster"))).status).toBe(401);
+  });
+});
+
+describe("clock in and out", () => {
+  test("starts out of a shift, with the locations to choose from", async () => {
+    as("stylist", w.staffId);
+    const { data } = await json(await getClock(req("/api/v1/timesheets/clock")));
+    expect(data).toMatchObject({ available: true, open: null });
+    expect(data.locations).toEqual([{ id: w.locationId, name: "Northside" }]);
+    expect(typeof data.serverNow).toBe("string");
+  });
+
+  test("a full shift: in, shown as open, out, and a second out is refused", async () => {
+    as("stylist", w.staffId);
+    const started = await clockIn(req("/x", { locationId: w.locationId }));
+    expect(started.status).toBe(200);
+    expect((await json(started)).data.entryId).toBeTruthy();
+
+    const open = (await json(await getClock(req("/x")))).data.open;
+    expect(open).toMatchObject({ locationName: "Northside" });
+    expect(open.sinceLabel).toBeTruthy();
+
+    const finished = await clockOut(req("/x", { breakMinutes: 0 }));
+    expect(finished.status).toBe(200);
+    expect((await json(await getClock(req("/x")))).data.open).toBeNull();
+
+    const again = await clockOut(req("/x", {}));
+    expect(again.status).toBe(409);
+    expect((await json(again)).error.code).toBe("invalid_state");
+  });
+
+  test("clocking in twice is refused with a clear message", async () => {
+    as("stylist", w.staffId);
+    await clockIn(req("/x", {}));
+    const second = await clockIn(req("/x", {}));
+    expect(second.status).toBe(409);
+    expect((await json(second)).error.message).toContain("already clocked in");
+  });
+
+  test("it is always the signed-in person: a colleague's clock is untouched", async () => {
+    as("stylist", w.staffId);
+    await clockIn(req("/x", {}));
+    as("stylist", otherStaffId);
+    expect((await json(await getClock(req("/x")))).data.open).toBeNull();
+  });
+
+  test("a break longer than the shift is refused", async () => {
+    as("stylist", w.staffId);
+    await clockIn(req("/x", {}));
+    const res = await clockOut(req("/x", { breakMinutes: 30 }));
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBeLessThan(500);
+    // The shift stays open so they can try again with the right break.
+    expect((await json(await getClock(req("/x")))).data.open).not.toBeNull();
+  });
+
+  test("an unknown location or a silly break is refused with the field named", async () => {
+    as("stylist", w.staffId);
+    const bad = await clockIn(req("/x", { locationId: "00000000-0000-4000-8000-000000000000" }));
+    expect([400, 422]).toContain(bad.status);
+    await clockIn(req("/x", {}));
+    const silly = await clockOut(req("/x", { breakMinutes: 100000 }));
+    expect(silly.status).toBe(422);
+  });
+
+  test("someone without a staff profile cannot clock in, and is told why", async () => {
+    as("owner", null);
+    expect((await json(await getClock(req("/x")))).data).toEqual({ available: false });
+    const res = await clockIn(req("/x", {}));
+    expect(res.status).toBe(409);
+    expect((await json(res)).error.code).toBe("no_staff_profile");
+  });
+
+  test("signed out is 401", async () => {
+    expect((await getClock(req("/x"))).status).toBe(401);
+    expect((await clockIn(req("/x", {}))).status).toBe(401);
+    expect((await clockOut(req("/x", {}))).status).toBe(401);
   });
 });

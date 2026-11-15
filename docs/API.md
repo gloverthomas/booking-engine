@@ -81,7 +81,7 @@ Not yet notified: reschedules and reassignments, waitlist claims, failed fee cha
 
 ## Not built yet
 
-Roster and timesheet endpoints, waitlist, and a generated OpenAPI document. See the phases in
+Waitlist, editing the roster and timesheets from the phone, and a generated OpenAPI document. See the phases in
 `docs/MOBILE.md`.
 
 ## Sign-in and the iOS client id

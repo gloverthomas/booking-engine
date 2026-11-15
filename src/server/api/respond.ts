@@ -6,6 +6,7 @@ import { AdminError, isOverlapError } from "../admin/errors";
 import { AccessDeniedError } from "../auth/access-core";
 import { AuthNotConfiguredError } from "../auth/config";
 import { PaymentError } from "../payments/stripe";
+import { TimesheetError } from "../timesheets/errors";
 import {
   BookingStateError,
   ClientBlockedError,
@@ -62,6 +63,23 @@ function fieldsOf(error: ZodError): Record<string, string> {
     if (!(key in fields)) fields[key] = issue.message;
   }
   return fields;
+}
+
+function timesheetErrorResponse(error: TimesheetError): Response {
+  if (Object.keys(error.fieldErrors).length > 0) {
+    return failure(422, {
+      code: "invalid_request",
+      message: error.message,
+      fields: { ...error.fieldErrors },
+    });
+  }
+  if (error.code === "already_clocked_in" || error.code === "not_clocked_in") {
+    return failure(409, { code: "invalid_state", message: error.message });
+  }
+  if (error.code === "no_staff_profile") {
+    return failure(409, { code: "no_staff_profile", message: error.message });
+  }
+  return failure(400, { code: "rejected", message: error.message });
 }
 
 function paymentErrorResponse(error: PaymentError): Response {
@@ -140,6 +158,7 @@ export function errorResponse(error: unknown): Response {
     });
   }
   if (error instanceof PaymentError) return paymentErrorResponse(error);
+  if (error instanceof TimesheetError) return timesheetErrorResponse(error);
   if (error instanceof AdminError) {
     // The commands signal these two outcomes by message; the API gives them their proper statuses.
     if (error.message === BOOKING_NOT_FOUND_MESSAGE) {
