@@ -199,6 +199,7 @@ interface ReadyProps {
 }
 
 function Ready({ view, client, token, onView }: ReadyProps) {
+  const router = useRouter();
   const { offer } = view;
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -216,7 +217,7 @@ function Ready({ view, client, token, onView }: ReadyProps) {
     if (result.ok) {
       const data = result.data;
       if (data.confirmed) {
-        window.location.assign(`/book/confirmed/${data.manageToken}`);
+        router.push(`/book/confirmed/${data.manageToken}`);
         return;
       }
       onView({

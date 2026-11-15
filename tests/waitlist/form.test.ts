@@ -64,17 +64,20 @@ describe("validateJoin", () => {
   });
 
   test("checks the date window", () => {
-    expect(validateJoin({ ...valid, earliestDate: "2026-10-01" }, TODAY, HORIZON).earliestDate).toBe(
-      "That date has passed",
-    );
+    expect(
+      validateJoin({ ...valid, earliestDate: "2026-10-01" }, TODAY, HORIZON).earliestDate,
+    ).toBe("That date has passed");
     expect(validateJoin({ ...valid, earliestDate: "" }, TODAY, HORIZON).earliestDate).toBeTruthy();
     expect(validateJoin({ ...valid, latestDate: "" }, TODAY, HORIZON).latestDate).toBeTruthy();
-    expect(validateJoin({ ...valid, latestDate: "2028-01-01" }, TODAY, HORIZON).latestDate).toContain(
-      HORIZON,
-    );
     expect(
-      validateJoin({ ...valid, earliestDate: "2026-11-10", latestDate: "2026-11-05" }, TODAY, HORIZON)
-        .latestDate,
+      validateJoin({ ...valid, latestDate: "2028-01-01" }, TODAY, HORIZON).latestDate,
+    ).toContain(HORIZON);
+    expect(
+      validateJoin(
+        { ...valid, earliestDate: "2026-11-10", latestDate: "2026-11-05" },
+        TODAY,
+        HORIZON,
+      ).latestDate,
     ).toContain("can't be before");
   });
 });
@@ -96,7 +99,8 @@ describe("buildJoinRequest", () => {
       turnstileToken: "tok",
     });
     expect(
-      buildJoinRequest({ ...valid, weekdays: [1] }, { locationId: "L", serviceIds: ["S"] }).weekdays,
+      buildJoinRequest({ ...valid, weekdays: [1] }, { locationId: "L", serviceIds: ["S"] })
+        .weekdays,
     ).toEqual([1]);
   });
 });
@@ -104,7 +108,12 @@ describe("buildJoinRequest", () => {
 describe("joinWaitlistHref", () => {
   test("carries location, services, date and staff", () => {
     expect(
-      joinWaitlistHref({ locationId: "L", serviceIds: ["a", "b"], date: "2026-11-02", staffId: "T" }),
+      joinWaitlistHref({
+        locationId: "L",
+        serviceIds: ["a", "b"],
+        date: "2026-11-02",
+        staffId: "T",
+      }),
     ).toBe("/waitlist/join?location=L&services=a%2Cb&date=2026-11-02&staff=T");
     expect(joinWaitlistHref({ locationId: "L", serviceIds: ["a"] })).toBe(
       "/waitlist/join?location=L&services=a",
@@ -138,7 +147,9 @@ describe("waitlist client", () => {
       throw new Error("down");
     }) as never);
     expect((await network.entry("t")).ok).toBe(false);
-    const garbage = createWaitlistClient((async () => new Response("<html>", { status: 502 })) as never);
+    const garbage = createWaitlistClient(
+      (async () => new Response("<html>", { status: 502 })) as never,
+    );
     expect(await garbage.claim("t", "1")).toMatchObject({ ok: false, status: 502 });
     const odd = createWaitlistClient(respond({ nope: true }) as never);
     expect(await odd.entry("t")).toMatchObject({ ok: false, error: { code: "bad_response" } });
