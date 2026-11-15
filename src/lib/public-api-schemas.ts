@@ -83,6 +83,8 @@ export const holdBodySchema = z.object({
   locationId: id,
   serviceIds: z.array(id).min(1, "Choose at least one service").max(MAX_SERVICES_PER_BOOKING),
   staffId: id.optional(),
+  /** True when the client picked this stylist; false when staffId only pins the quoted one for "anyone". */
+  staffRequested: z.boolean().default(false),
   start: z.iso.datetime({ offset: true, message: "Choose a time" }),
   client: z.object({
     firstName: required("First name", 60),

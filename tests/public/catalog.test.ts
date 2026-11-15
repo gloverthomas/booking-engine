@@ -178,6 +178,9 @@ describe("public catalog loaders (real Postgres via PGlite)", () => {
       arrivalNote: null,
       phone: null,
       serviceIds: [cutId, beardId],
+      staffId: seed.stylist.id,
+      staffName: "Ryan",
+      staffRequested: false,
     });
   });
 
