@@ -11,16 +11,19 @@ describe("Better Auth instance with the owner allow-list", () => {
   let harness: Harness;
   let auth: Auth;
   let owners: ReadonlySet<string>;
+  let staffEmails: Set<string>;
 
   beforeEach(async () => {
     harness = await createTestDb();
     owners = parseOwnerEmails("ryan@example.com");
+    staffEmails = new Set(["mia@example.com"]);
     auth = createAuth({
       db: harness.db,
       secret: "test-secret-test-secret-test-secret-123",
       baseURL: "http://localhost:3000",
       google: { clientId: "id", clientSecret: "secret" },
       ownerEmails: () => owners,
+      isStaffEmail: async (email) => staffEmails.has(email),
       secureCookies: false,
     });
   });
@@ -92,5 +95,27 @@ describe("Better Auth instance with the owner allow-list", () => {
     expect(await harness.db.select().from(session).where(eq(session.userId, created.id))).toEqual(
       [],
     );
+  });
+
+  test("an active staff member can get an account and a session; removing them blocks new sessions", async () => {
+    const ctx = await auth.$context;
+    const { user: created } = await signUpViaGoogle("Mia@example.com");
+    expect(created.email.toLowerCase()).toBe("mia@example.com");
+    await expect(ctx.internalAdapter.createSession(created.id)).resolves.toMatchObject({
+      userId: created.id,
+    });
+    staffEmails.delete("mia@example.com");
+    await expect(ctx.internalAdapter.createSession(created.id)).resolves.toBeNull();
+  });
+
+  test("validateUserInfo admits staff, and refuses an unverified staff email", async () => {
+    const validate = auth.options.user?.validateUserInfo;
+    const source = { action: "create-user", method: "oauth" } as const;
+    expect(
+      await validate?.({ user: { email: "mia@example.com", emailVerified: true }, source }),
+    ).toBeUndefined();
+    expect(
+      await validate?.({ user: { email: "mia@example.com", emailVerified: false }, source }),
+    ).toMatchObject({ error: "email_not_verified" });
   });
 });
