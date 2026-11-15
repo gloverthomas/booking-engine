@@ -118,9 +118,9 @@ describe("a stylist cannot touch a colleague's booking", () => {
     await expect(
       rescheduleStaffBooking(ctx, { bookingId: id, newStart: NOW, notifyClient: false }),
     ).rejects.toThrow(notFound);
-    await expect(
-      cancelStaffBooking(ctx, { bookingId: id, depositMode: "keep" }),
-    ).rejects.toThrow(notFound);
+    await expect(cancelStaffBooking(ctx, { bookingId: id, depositMode: "keep" })).rejects.toThrow(
+      notFound,
+    );
     await expect(markBookingNoShow(ctx, { bookingId: id })).rejects.toThrow(notFound);
     await expect(resendBookingConfirmation(ctx, { bookingId: id })).rejects.toThrow(notFound);
     await expect(checkoutBooking(ctx, { bookingId: id, method: "cash" })).rejects.toThrow(notFound);
