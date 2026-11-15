@@ -36,7 +36,10 @@ export function readAuthConfig(env: Env, db: Db): AuthConfig {
     secret,
     baseURL,
     google: {
-      clientId: env.GOOGLE_CLIENT_ID as string,
+      // The web client comes first (it runs the browser flow); the iOS client is accepted for ID tokens only.
+      clientId: env.GOOGLE_IOS_CLIENT_ID
+        ? [env.GOOGLE_CLIENT_ID as string, env.GOOGLE_IOS_CLIENT_ID]
+        : (env.GOOGLE_CLIENT_ID as string),
       clientSecret: env.GOOGLE_CLIENT_SECRET as string,
     },
     // Re-parsed each call so a changed environment (tests, restarts) is honoured, and so it is never stale.

@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
+import { bearer } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import * as authSchema from "@/db/auth-schema";
 import type { Db } from "@/server/db-types";
@@ -15,7 +16,7 @@ export interface AuthConfig {
   secret: string;
   /** Public origin of the app, e.g. https://admin.example.com. Also the only trusted origin. */
   baseURL: string;
-  google: { clientId: string; clientSecret: string };
+  google: { clientId: string | string[]; clientSecret: string };
   /** Read on every sign-in and session creation, so allow-list changes apply immediately. */
   ownerEmails: () => ReadonlySet<string>;
   /** True for an email that belongs to an active staff member. Read on every sign-in too. Omitted = owners only. */
@@ -100,7 +101,9 @@ export function createAuth(config: AuthConfig) {
       },
     },
     rateLimit: { enabled: true, window: 60, max: 30 },
-    plugins: [nextCookies()],
+    // bearer(): the iPhone app sends `Authorization: Bearer <token>` instead of a cookie. Same sessions, same
+    // allow-list, same revocation. nextCookies() must stay last.
+    plugins: [bearer(), nextCookies()],
   });
 }
 
