@@ -52,6 +52,7 @@ function makeDomain() {
     recordManualPayment: vi.fn(async () => undefined),
     refundPayment: vi.fn(async () => undefined),
     resendConfirmation: vi.fn(async () => undefined),
+    reassignBooking: vi.fn(async () => undefined),
     mergeClients: vi.fn(async () => undefined),
   };
 }
@@ -88,7 +89,13 @@ beforeEach(async () => {
     .set({ settings: { policyVersion: "7", cashDiscountPct: 10 } })
     .where(eq(business.id, seed.biz.id));
   domain = makeDomain();
-  ctx = { db: t.db, actor: "owner:u1", domain: domain as unknown as AdminDomain, now: NOW };
+  ctx = {
+    db: t.db,
+    actor: "owner:u1",
+    access: { role: "owner", staffId: null },
+    domain: domain as unknown as AdminDomain,
+    now: NOW,
+  };
 });
 afterEach(async () => {
   await t.client.close();
@@ -274,7 +281,17 @@ describe("markBookingNoShow / resend / refund", () => {
 
   test("refunds a payment, passing an optional partial amount, and audits it", async () => {
     const b = await addBooking();
-    const paymentId = crypto.randomUUID();
+    const [paid] = await t.db
+      .insert(payment)
+      .values({
+        bookingId: b.id,
+        kind: "deposit",
+        method: "stripe_online",
+        status: "succeeded",
+        amountCents: 5000,
+      })
+      .returning();
+    const paymentId = paid.id;
     await refundBookingPayment(ctx, { bookingId: b.id, paymentId, amountCents: 2500 });
     expect(domain.refundPayment).toHaveBeenCalledWith(t.db, paymentId, 2500);
     const [audit] = await audits();

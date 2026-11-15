@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   blockSchema,
   calendarQuerySchema,
+  reassignSchema,
   cancelSchema,
   clientSearchQuerySchema,
   queryToObject,
@@ -131,12 +132,31 @@ describe("read query schemas", () => {
       from: "2026-11-15T00:00:00.000Z",
       to: "2026-11-22T00:00:00.000Z",
       locationId: "",
-      staffId: id,
+      staffIds: `${id},${id}`,
     });
     const parsed = calendarQuerySchema.parse(queryToObject(params));
     expect(parsed.from).toBeInstanceOf(Date);
     expect(parsed.locationId).toBeUndefined();
-    expect(parsed.staffId).toBe(id);
+    expect(parsed.staffIds).toEqual([id, id]);
+  });
+
+  test("calendar query rejects a malformed stylist list", () => {
+    expect(
+      calendarQuerySchema.safeParse({
+        from: "2026-11-15T00:00:00Z",
+        to: "2026-11-16T00:00:00Z",
+        staffIds: "not-a-uuid",
+      }).success,
+    ).toBe(false);
+  });
+
+  test("reassign needs both ids and a notify flag", () => {
+    expect(
+      reassignSchema.safeParse({ bookingId: id, newStaffId: id, notifyClient: true }).success,
+    ).toBe(true);
+    expect(
+      reassignSchema.safeParse({ bookingId: id, newStaffId: "x", notifyClient: true }).success,
+    ).toBe(false);
   });
 
   test("calendar query rejects reversed or huge ranges", () => {

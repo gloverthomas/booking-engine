@@ -9,12 +9,15 @@ import {
   serviceLocation,
   timeBlock,
 } from "@/db/schema";
+import type { AccessContext } from "@/server/admin/access";
 import {
   createManualBlock,
   deleteBlock,
   listCalendarEvents,
   listCalendarResources,
 } from "@/server/admin/calendar";
+
+const OWNER: AccessContext = { role: "owner", staffId: null };
 
 type TestDb = Awaited<ReturnType<typeof createTestDb>>;
 let t: TestDb;
@@ -82,7 +85,7 @@ describe("listCalendarEvents", () => {
       },
     ]);
 
-    const events = await listCalendarEvents(t.db, week);
+    const events = await listCalendarEvents(t.db, week, OWNER);
 
     expect(events.map((e) => e.id)).toEqual([earlier.id, later.id]);
     expect(events[0]).toMatchObject({
@@ -104,7 +107,7 @@ describe("listCalendarEvents", () => {
     const done = await addBooking("completed", "2026-11-17T03:00:00Z", "2026-11-17T04:00:00Z");
     const ns = await addBooking("no_show", "2026-11-17T05:00:00Z", "2026-11-17T06:00:00Z");
 
-    const events = await listCalendarEvents(t.db, week);
+    const events = await listCalendarEvents(t.db, week, OWNER);
     expect(events.map((e) => e.id)).toEqual([done.id, ns.id]);
   });
 
@@ -113,7 +116,7 @@ describe("listCalendarEvents", () => {
     await addBooking("confirmed", "2026-11-14T22:00:00Z", "2026-11-14T23:00:00Z");
     await addBooking("confirmed", "2026-11-22T00:00:00Z", "2026-11-22T01:00:00Z");
 
-    const events = await listCalendarEvents(t.db, week);
+    const events = await listCalendarEvents(t.db, week, OWNER);
     expect(events.map((e) => e.id)).toEqual([straddles.id]);
   });
 
@@ -127,12 +130,14 @@ describe("listCalendarEvents", () => {
       locationId: other.id,
     });
 
-    const onlySouth = await listCalendarEvents(t.db, week, other.id);
+    const onlySouth = await listCalendarEvents(t.db, week, OWNER, { locationId: other.id });
     expect(onlySouth.map((e) => e.id)).toEqual([south.id]);
 
-    const wrongStaff = await listCalendarEvents(t.db, week, undefined, crypto.randomUUID());
+    const wrongStaff = await listCalendarEvents(t.db, week, OWNER, {
+      staffIds: [crypto.randomUUID()],
+    });
     expect(wrongStaff).toEqual([]);
-    const rightStaff = await listCalendarEvents(t.db, week, undefined, seed.stylist.id);
+    const rightStaff = await listCalendarEvents(t.db, week, OWNER, { staffIds: [seed.stylist.id] });
     expect(rightStaff.map((e) => e.id)).toEqual([north.id, south.id]);
   });
 
@@ -152,7 +157,7 @@ describe("listCalendarEvents", () => {
       },
     ]);
 
-    const events = await listCalendarEvents(t.db, week);
+    const events = await listCalendarEvents(t.db, week, OWNER);
     expect(events).toHaveLength(2);
     expect(events[0]).toMatchObject({ kind: "block", reason: "Dentist" });
     expect(events[1]).toMatchObject({ kind: "external", reason: null });
@@ -166,7 +171,7 @@ describe("listCalendarResources", () => {
     await t.db.insert(serviceLocation).values({ serviceId: svc.id, locationId: seed.loc.id });
     await t.db.insert(location).values({ businessId: seed.biz.id, name: "Closed", active: false });
 
-    const res = await listCalendarResources(t.db);
+    const res = await listCalendarResources(t.db, OWNER);
 
     expect(res.timezone).toBe("Australia/Melbourne");
     expect(res.slotStepMin).toBe(15);
@@ -193,6 +198,7 @@ describe("manual blocks", () => {
         reason: "Lunch",
       },
       actor,
+      OWNER,
     );
 
     expect(result.overlappingBookings).toBe(1);
@@ -205,7 +211,7 @@ describe("manual blocks", () => {
   test("rejects an empty or reversed range", async () => {
     const t0 = new Date("2026-11-16T02:30:00Z");
     await expect(
-      createManualBlock(t.db, { staffId: seed.stylist.id, start: t0, end: t0 }, actor),
+      createManualBlock(t.db, { staffId: seed.stylist.id, start: t0, end: t0 }, actor, OWNER),
     ).rejects.toThrow(/after the start/i);
   });
 
@@ -218,8 +224,9 @@ describe("manual blocks", () => {
         end: new Date("2026-11-16T03:30:00Z"),
       },
       actor,
+      OWNER,
     );
-    await deleteBlock(t.db, created.blockId, actor);
+    await deleteBlock(t.db, created.blockId, actor, OWNER);
     expect(await t.db.select().from(timeBlock)).toHaveLength(0);
     const actions = (await t.db.select().from(auditLog)).map((a) => a.action).sort();
     expect(actions).toEqual(["time_block.created", "time_block.deleted"]);
@@ -235,8 +242,10 @@ describe("manual blocks", () => {
         externalId: "g1",
       })
       .returning();
-    await expect(deleteBlock(t.db, google.id, actor)).rejects.toThrow(/Google/);
-    await expect(deleteBlock(t.db, crypto.randomUUID(), actor)).rejects.toThrow(/not found/i);
+    await expect(deleteBlock(t.db, google.id, actor, OWNER)).rejects.toThrow(/Google/);
+    await expect(deleteBlock(t.db, crypto.randomUUID(), actor, OWNER)).rejects.toThrow(
+      /not found/i,
+    );
     expect(await t.db.select().from(timeBlock)).toHaveLength(1);
   });
 });
