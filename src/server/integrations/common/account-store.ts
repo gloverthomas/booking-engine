@@ -1,10 +1,16 @@
-import { eq, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, sql, type SQL } from "drizzle-orm";
 import { business, integrationAccount } from "@/db/schema";
 import { decryptJson, encryptJson } from "@/server/crypto";
 import type { Db } from "@/server/db-types";
 
 export type IntegrationProviderName = "google" | "xero";
 export type AccountRow = typeof integrationAccount.$inferSelect;
+
+/**
+ * Which account a call addresses: `null` is the business-wide account (Xero, and the owner's
+ * shared Google calendar); a staff id is that stylist's own account.
+ */
+export type AccountStaffId = string | null;
 
 /** Single-tenant today: the one business row. */
 export async function getBusiness(db: Db): Promise<{ id: string; timezone: string }> {
@@ -16,20 +22,42 @@ export async function getBusiness(db: Db): Promise<{ id: string; timezone: strin
   return row;
 }
 
+function accountWhere(provider: IntegrationProviderName, staffId: AccountStaffId): SQL {
+  const owner =
+    staffId === null ? isNull(integrationAccount.staffId) : eq(integrationAccount.staffId, staffId);
+  return and(eq(integrationAccount.provider, provider), owner) as SQL;
+}
+
+/** The account for (provider, staffId). `staffId` defaults to the business-wide account. */
 export async function getAccount(
   db: Db,
   provider: IntegrationProviderName,
+  staffId: AccountStaffId = null,
 ): Promise<AccountRow | null> {
   const [row] = await db
     .select()
     .from(integrationAccount)
-    .where(eq(integrationAccount.provider, provider))
+    .where(accountWhere(provider, staffId))
     .limit(1);
   return row ?? null;
 }
 
+/** Every account of a provider: the business-wide one first, then each stylist's, oldest first. */
+export async function listAccounts(
+  db: Db,
+  provider: IntegrationProviderName,
+): Promise<AccountRow[]> {
+  return db
+    .select()
+    .from(integrationAccount)
+    .where(eq(integrationAccount.provider, provider))
+    .orderBy(sql`${integrationAccount.staffId} IS NOT NULL`, asc(integrationAccount.createdAt));
+}
+
 export interface ConnectInput<T> {
   provider: IntegrationProviderName;
+  /** A stylist's own account; omit (or null) for the business-wide account. */
+  staffId?: AccountStaffId;
   externalAccountId: string;
   tokens: T;
   key: string;
@@ -40,8 +68,10 @@ export interface ConnectInput<T> {
 /** Create or replace the account row after a successful OAuth exchange. */
 export async function saveConnection<T>(db: Db, input: ConnectInput<T>): Promise<AccountRow> {
   const biz = await getBusiness(db);
+  const staffId = input.staffId ?? null;
   const values = {
     businessId: biz.id,
+    staffId,
     provider: input.provider,
     externalAccountId: input.externalAccountId,
     encryptedTokens: encryptJson(input.tokens, input.key),
@@ -49,15 +79,24 @@ export async function saveConnection<T>(db: Db, input: ConnectInput<T>): Promise
     lastError: null,
     syncState: input.syncState,
   };
+  // The unique indexes are partial: one business-wide account per provider, and one account per
+  // stylist per provider. The conflict target has to name the one that applies.
   const [row] = await db
     .insert(integrationAccount)
     .values(values)
-    .onConflictDoUpdate({
-      target: [integrationAccount.businessId, integrationAccount.provider],
-      // The unique index is partial: business-wide accounts have no staff member.
-      targetWhere: sql`${integrationAccount.staffId} IS NULL`,
-      set: values,
-    })
+    .onConflictDoUpdate(
+      staffId === null
+        ? {
+            target: [integrationAccount.businessId, integrationAccount.provider],
+            targetWhere: sql`${integrationAccount.staffId} IS NULL`,
+            set: values,
+          }
+        : {
+            target: [integrationAccount.staffId, integrationAccount.provider],
+            targetWhere: sql`${integrationAccount.staffId} IS NOT NULL`,
+            set: values,
+          },
+    )
     .returning();
   return row;
 }
@@ -102,35 +141,42 @@ export async function replaceSyncState(
     .where(eq(integrationAccount.id, accountId));
 }
 
-/** `fatal` means the owner must reconnect: status flips to 'error' so the admin UI shows it. */
+/**
+ * `fatal` means the owner must reconnect: status flips to 'error' so the admin UI shows it.
+ * Touches only the addressed account (`staffId`, default the business-wide one), never a sibling.
+ */
 export async function recordFailure(
   db: Db,
   provider: IntegrationProviderName,
   message: string,
-  options: { fatal: boolean },
+  options: { fatal: boolean; staffId?: AccountStaffId },
 ): Promise<void> {
   await db
     .update(integrationAccount)
     .set(options.fatal ? { lastError: message, status: "error" } : { lastError: message })
-    .where(eq(integrationAccount.provider, provider));
+    .where(accountWhere(provider, options.staffId ?? null));
 }
 
 export async function recordSuccess(
   db: Db,
   provider: IntegrationProviderName,
   now: Date,
+  staffId: AccountStaffId = null,
 ): Promise<void> {
   await db
     .update(integrationAccount)
     .set({ lastError: null, lastSyncAt: now })
-    .where(eq(integrationAccount.provider, provider));
+    .where(accountWhere(provider, staffId));
 }
 
-/** `keepSyncState` preserves owner-chosen settings (Xero account codes) across a reconnect. */
+/**
+ * `keepSyncState` preserves owner-chosen settings (Xero account codes) across a reconnect.
+ * Touches only the addressed account.
+ */
 export async function markDisconnected(
   db: Db,
   provider: IntegrationProviderName,
-  options: { keepSyncState?: boolean } = {},
+  options: { keepSyncState?: boolean; staffId?: AccountStaffId } = {},
 ): Promise<void> {
   await db
     .update(integrationAccount)
@@ -140,7 +186,7 @@ export async function markDisconnected(
       lastError: null,
       ...(options.keepSyncState ? {} : { syncState: {} }),
     })
-    .where(eq(integrationAccount.provider, provider));
+    .where(accountWhere(provider, options.staffId ?? null));
 }
 
 /** Read a string-ish value out of sync_state, treating null/absent as undefined. */

@@ -8,3 +8,4 @@ import "./suites/google-inbound";
 import "./suites/google-channel";
 import "./suites/google-routes";
 import "./suites/google-jobs";
+import "./suites/google-per-stylist";

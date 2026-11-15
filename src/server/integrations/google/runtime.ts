@@ -3,11 +3,13 @@ import type { Db } from "@/server/db-types";
 import {
   getAccount,
   getBusiness,
+  listAccounts,
   readTokens,
   recordFailure,
   stateString,
   writeTokens,
   type AccountRow,
+  type AccountStaffId,
 } from "../common/account-store";
 import { googleCredentials, requireEncryptionKey, type IntegrationEnv } from "../common/env";
 import { AuthRevokedError, errorMessage } from "../common/errors";
@@ -39,6 +41,7 @@ export interface GoogleRuntime {
 /** The Google state we keep in integration_account.sync_state. */
 export interface GoogleSyncState {
   calendarId: string;
+  /** Business-wide account only: the stylist whose diary its busy time blocks. */
   staffId?: string;
   syncToken?: string;
   /** ISO. End of the window a full sync covered. */
@@ -60,10 +63,15 @@ export function parseSyncState(account: AccountRow): GoogleSyncState {
   };
 }
 
-/** Null when Google is not connected: callers skip quietly (the reconcile job catches up later). */
-export async function loadGoogleRuntime(deps: GoogleDeps): Promise<GoogleRuntime | null> {
-  const account = await getAccount(deps.db, "google");
-  if (!account || account.status !== "connected") return null;
+/**
+ * Build the runtime for one account row. Null when it is not connected or holds no tokens:
+ * callers skip quietly (the reconcile job catches up later).
+ */
+export async function buildGoogleRuntime(
+  deps: GoogleDeps,
+  account: AccountRow,
+): Promise<GoogleRuntime | null> {
+  if (account.status !== "connected") return null;
 
   const key = requireEncryptionKey(deps.env);
   const tokens = readTokens<GoogleTokens>(account, key);
@@ -102,13 +110,56 @@ export async function loadGoogleRuntime(deps: GoogleDeps): Promise<GoogleRuntime
 }
 
 /**
- * Record a failure so the admin UI can show it. A revoked/expired token flips the account to
- * status 'error' (the UI then offers "reconnect"); anything else just sets lastError.
+ * The runtime for (Google, staffId): a stylist's own calendar, or the business-wide one when
+ * `staffId` is null (the default). Null when that account is not connected.
  */
-export async function reportGoogleFailure(deps: GoogleDeps, error: unknown): Promise<void> {
+export async function loadGoogleRuntime(
+  deps: GoogleDeps,
+  staffId: AccountStaffId = null,
+): Promise<GoogleRuntime | null> {
+  const account = await getAccount(deps.db, "google", staffId);
+  return account ? buildGoogleRuntime(deps, account) : null;
+}
+
+/** Every connected Google account (business-wide first), each with a ready client. */
+export async function loadAllGoogleRuntimes(deps: GoogleDeps): Promise<GoogleRuntime[]> {
+  const runtimes: GoogleRuntime[] = [];
+  for (const account of await listAccounts(deps.db, "google")) {
+    const runtime = await buildGoogleRuntime(deps, account);
+    if (runtime) runtimes.push(runtime);
+  }
+  return runtimes;
+}
+
+/**
+ * Where a booking's calendar event lives: the stylist's own connected calendar when they have
+ * one, else the business-wide calendar, else nowhere (null).
+ */
+export function pickOutboundRuntime(
+  runtimes: readonly GoogleRuntime[],
+  bookingStaffId: string,
+): GoogleRuntime | null {
+  return (
+    runtimes.find((rt) => rt.account.staffId === bookingStaffId) ??
+    runtimes.find((rt) => rt.account.staffId === null) ??
+    null
+  );
+}
+
+/**
+ * Record a failure so the admin UI can show it. A revoked/expired token flips that one account
+ * to status 'error' (the UI then offers "reconnect"); anything else just sets lastError.
+ * Other accounts are never touched.
+ */
+export async function reportGoogleFailure(
+  deps: GoogleDeps,
+  error: unknown,
+  staffId: AccountStaffId = null,
+): Promise<void> {
   const fatal = error instanceof AuthRevokedError;
   await recordFailure(deps.db, "google", fatal ? RECONNECT_MESSAGE : errorMessage(error), {
     fatal,
+    staffId,
   });
-  deps.log({ event: "google_failure", fatal, message: errorMessage(error) });
+  deps.log({ event: "google_failure", fatal, staffId, message: errorMessage(error) });
 }
