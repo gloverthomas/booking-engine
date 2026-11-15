@@ -1,6 +1,9 @@
+import Link from "next/link";
+import { joinWaitlistHref } from "./form";
+
 /**
- * OWNER: workstream W6 (waitlist). The booking page shows this when a day has no times. Replace the stub,
- * keeping the props. Until then it is a plain link.
+ * The booking page shows this when a day has no times: a short promise and a button to the waitlist
+ * form, carrying the selection along.
  */
 export interface JoinWaitlistCtaProps {
   locationId: string;
@@ -11,8 +14,17 @@ export interface JoinWaitlistCtaProps {
 }
 
 export function JoinWaitlistCta({ locationId, serviceIds, date, staffId }: JoinWaitlistCtaProps) {
-  const params = new URLSearchParams({ location: locationId, services: serviceIds.join(",") });
-  if (date) params.set("date", date);
-  if (staffId) params.set("staff", staffId);
-  return <a href={`/waitlist/join?${params.toString()}`}>Join the waitlist</a>;
+  return (
+    <div className="rk-wl-cta">
+      <p className="rk-wl-cta__text">
+        Nothing that suits? Join the waitlist and we&apos;ll message you if a time opens up.
+      </p>
+      <Link
+        className="rk-btn rk-btn--ghost"
+        href={joinWaitlistHref({ locationId, serviceIds, date, staffId })}
+      >
+        Join the waitlist
+      </Link>
+    </div>
+  );
 }
