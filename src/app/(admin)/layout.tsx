@@ -2,7 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Suspense, type ReactNode } from "react";
 import { AdminShell } from "@/components/admin/shell/admin-shell";
 import { archivo } from "@/components/admin/shell/fonts";
-import { requireOwner } from "@/server/auth";
+import { navFor } from "@/components/admin/shell/nav-config";
+import { requireStaffSession } from "@/server/auth/access";
+import { hasPermission } from "@/server/auth/access-core";
 
 export const metadata: Metadata = {
   title: { default: "Admin", template: "%s · Ryan Kennedy Admin" },
@@ -24,9 +26,9 @@ export const viewport: Viewport = {
 };
 
 /**
- * Every route under (admin) is behind requireOwner(). The session is read at request time, so it
+ * Every route under (admin) is behind a signed-in team member (any role). The session is read at request time, so it
  * sits behind a Suspense boundary (Cache Components): the fallback is the only thing prerendered.
- * Pages and server actions also call requireOwner() themselves, because layouts are not re-run on
+ * Pages and server actions also call requireAccess(permission) themselves, because layouts are not re-run on
  * every client navigation and must never be the only gate.
  * The login page lives in the sibling (auth) group so it is not behind this guard.
  */
@@ -41,8 +43,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 }
 
 async function SignedInShell({ children }: { children: ReactNode }) {
-  const owner = await requireOwner();
-  return <AdminShell user={{ email: owner.email }}>{children}</AdminShell>;
+  const session = await requireStaffSession();
+  return (
+    <AdminShell
+      user={{ email: session.email, name: session.name, role: session.role }}
+      items={navFor(session.role)}
+      showClock={hasPermission(session.role, "timesheets.clock")}
+    >
+      {children}
+    </AdminShell>
+  );
 }
 
 function ShellFallback() {

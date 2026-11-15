@@ -33,6 +33,11 @@ export function SettingsForm({ initial }: { initial: BusinessSettings }) {
     cashDiscountPct: String(initial.cashDiscountPct),
     slotStepMin: String(initial.slotStepMin),
     chooseStaff: initial.chooseStaff,
+    waitlistEnabled: initial.waitlistEnabled,
+    waitlistAutoOffer: initial.waitlistAutoOffer,
+    waitlistOfferWindowMin: String(initial.waitlistOfferWindowMin),
+    waitlistMaxOffersPerSlot: String(initial.waitlistMaxOffersPerSlot),
+    staffAlertsEnabled: initial.staffAlertsEnabled,
     policyText: initial.policyText,
   });
   const [version, setVersion] = useState(initial.policyVersion);
@@ -58,6 +63,11 @@ export function SettingsForm({ initial }: { initial: BusinessSettings }) {
           cashDiscountPct: num(v.cashDiscountPct),
           slotStepMin: num(v.slotStepMin),
           chooseStaff: v.chooseStaff,
+          waitlistEnabled: v.waitlistEnabled,
+          waitlistAutoOffer: v.waitlistAutoOffer,
+          waitlistOfferWindowMin: num(v.waitlistOfferWindowMin),
+          waitlistMaxOffersPerSlot: num(v.waitlistMaxOffersPerSlot),
+          staffAlertsEnabled: v.staffAlertsEnabled,
           policyText: v.policyText,
         }),
       {
@@ -205,8 +215,67 @@ export function SettingsForm({ initial }: { initial: BusinessSettings }) {
             label="Let clients choose their stylist"
             checked={v.chooseStaff}
             onChange={(e) => set("chooseStaff", e.target.checked)}
-            hint="Leave off while there is one stylist."
+            hint="Turn on once more than one stylist takes bookings. Clients can still choose 'anyone'."
             wrapperClassName="sm:col-span-2"
+          />
+        </CardBody>
+      </Card>
+
+      <Card aria-labelledby="set-waitlist">
+        <CardHeader eyebrow="Waitlist" title={<span id="set-waitlist">When the day is full</span>} />
+        <CardBody className="grid gap-4 sm:grid-cols-2">
+          <Switch
+            label="Let clients join a waitlist"
+            checked={v.waitlistEnabled}
+            onChange={(e) => set("waitlistEnabled", e.target.checked)}
+            hint="Shown on the booking page when there are no times that suit."
+            wrapperClassName="sm:col-span-2"
+          />
+          <Switch
+            label="Offer freed-up times automatically"
+            checked={v.waitlistAutoOffer}
+            onChange={(e) => set("waitlistAutoOffer", e.target.checked)}
+            hint="When a cancellation frees a slot, text the people it suits. Off means you choose who to offer it to."
+            disabled={!v.waitlistEnabled}
+            wrapperClassName="sm:col-span-2"
+          />
+          <Input
+            label="Offer stays open for"
+            suffix="min"
+            type="number"
+            inputMode="numeric"
+            min={5}
+            max={240}
+            value={v.waitlistOfferWindowMin}
+            onChange={(e) => set("waitlistOfferWindowMin", e.target.value)}
+            error={fieldErrors.waitlistOfferWindowMin}
+            disabled={!v.waitlistEnabled}
+            hint="How long the claim link in the text works."
+          />
+          <Input
+            label="People offered one slot at once"
+            suffix="people"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={20}
+            value={v.waitlistMaxOffersPerSlot}
+            onChange={(e) => set("waitlistMaxOffersPerSlot", e.target.value)}
+            error={fieldErrors.waitlistMaxOffersPerSlot}
+            disabled={!v.waitlistEnabled}
+            hint="The first to pay the deposit gets it; the others are told it's gone."
+          />
+        </CardBody>
+      </Card>
+
+      <Card aria-labelledby="set-team">
+        <CardHeader eyebrow="Team" title={<span id="set-team">Stylist alerts</span>} />
+        <CardBody>
+          <Switch
+            label="Alert stylists about their bookings"
+            checked={v.staffAlertsEnabled}
+            onChange={(e) => set("staffAlertsEnabled", e.target.checked)}
+            hint="Email, and a text when their phone is set under Staff, whenever a booking is made, moved or cancelled."
           />
         </CardBody>
       </Card>

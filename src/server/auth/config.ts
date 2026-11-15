@@ -2,6 +2,7 @@ import type { Env } from "@/lib/env";
 import type { Db } from "@/server/db-types";
 import type { AuthConfig } from "./auth";
 import { parseOwnerEmails } from "./owners";
+import { isActiveStaffEmail } from "./resolve-access";
 
 const REQUIRED = [
   ["BETTER_AUTH_SECRET", "a random 32+ character secret (openssl rand -base64 32)"],
@@ -40,6 +41,7 @@ export function readAuthConfig(env: Env, db: Db): AuthConfig {
     },
     // Re-parsed each call so a changed environment (tests, restarts) is honoured, and so it is never stale.
     ownerEmails: () => parseOwnerEmails(env.OWNER_EMAILS),
+    isStaffEmail: (email) => isActiveStaffEmail(db, email),
     secureCookies: env.NODE_ENV === "production" || baseURL.startsWith("https://"),
   };
 }

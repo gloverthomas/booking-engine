@@ -7,15 +7,18 @@ import { Alert } from "@/components/ui/alert";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { buttonClasses } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { GoogleCalendarControl } from "@/components/admin/staff/GoogleCalendarControl";
+import { toStaffRowViews } from "@/components/admin/staff/views";
 import { PageHeader } from "@/components/ui/page-header";
 import { getBusiness } from "@/server/admin-foundation/business";
 import {
   configuredProvidersFromEnv,
   getIntegrationCards,
+  listGoogleByStylist,
   type IntegrationCard,
   type IntegrationCardStatus,
 } from "@/server/admin-foundation/integrations";
-import { requireOwner } from "@/server/auth";
+import { requireAccess } from "@/server/auth/access";
 
 export const metadata: Metadata = { title: "Integrations" };
 
@@ -35,12 +38,16 @@ export default function IntegrationsPage() {
 }
 
 async function IntegrationsBody() {
-  await requireOwner();
+  await requireAccess("integrations.manage");
   const db = getDb();
-  const [biz, cards] = await Promise.all([
+  const env = getEnv();
+  const [biz, cards, stylists] = await Promise.all([
     getBusiness(db),
-    getIntegrationCards(db, configuredProvidersFromEnv(getEnv())),
+    getIntegrationCards(db, configuredProvidersFromEnv(env)),
+    listGoogleByStylist(db),
   ]);
+  const googleConfigured = Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
+  const people = toStaffRowViews(stylists, biz.timezone);
 
   const formatTime = (date: Date) =>
     DateTime.fromJSDate(date, { zone: biz.timezone }).toFormat("ccc d LLL yyyy, h:mm a");
@@ -59,6 +66,36 @@ async function IntegrationsBody() {
           </li>
         ))}
       </ul>
+
+      <section aria-labelledby="google-by-stylist" className="flex flex-col gap-3">
+        <div>
+          <h2 id="google-by-stylist" className="display text-2xl">
+            Google Calendar by stylist
+          </h2>
+          <p className="text-sm text-ink-muted">
+            Each person links their own calendar, so their bookings land in their own Google
+            diary. You can also manage this from Staff.
+          </p>
+        </div>
+        <ul className="grid gap-4 lg:grid-cols-2">
+          {people.map((person) => (
+            <li key={person.id}>
+              <Card aria-labelledby={`g-${person.id}`}>
+                <CardBody className="flex flex-col gap-3">
+                  <p id={`g-${person.id}`} className="text-base font-bold">
+                    {person.name}
+                  </p>
+                  <GoogleCalendarControl
+                    staffId={person.id}
+                    google={person.google}
+                    configured={googleConfigured}
+                  />
+                </CardBody>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }

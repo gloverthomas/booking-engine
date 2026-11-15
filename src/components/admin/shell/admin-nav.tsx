@@ -6,16 +6,16 @@ import { useState, type ReactNode } from "react";
 import { Ellipsis } from "lucide-react";
 import { cn } from "@/components/ui/cn";
 import { Sheet } from "@/components/ui/dialog";
-import { isActivePath, MORE_NAV, NAV_ITEMS, PRIMARY_NAV } from "./nav-config";
+import { isActivePath, splitNav, type NavItem } from "./nav-config";
 import { NavGlyph } from "./nav-icon";
 
 /** Desktop sidebar list. */
-export function SidebarNav() {
+export function SidebarNav({ items }: { items: readonly NavItem[] }) {
   const pathname = usePathname();
   return (
     <nav aria-label="Main">
       <ul className="flex flex-col gap-0.5">
-        {NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const active = isActivePath(pathname, item.href);
           return (
             <li key={item.href}>
@@ -43,10 +43,11 @@ const tabBase =
   "relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[0.6875rem] font-semibold";
 
 /** Phone tab bar: four main destinations plus a "More" sheet for the rest. */
-export function BottomNav({ footer }: { footer: ReactNode }) {
+export function BottomNav({ items, footer }: { items: readonly NavItem[]; footer: ReactNode }) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
-  const moreActive = MORE_NAV.some((item) => isActivePath(pathname, item.href));
+  const { primary, more } = splitNav(items);
+  const moreActive = more.some((item) => isActivePath(pathname, item.href));
 
   return (
     <>
@@ -55,7 +56,7 @@ export function BottomNav({ footer }: { footer: ReactNode }) {
         className="fixed inset-x-0 bottom-0 z-30 border-t border-ink bg-paper pb-[env(safe-area-inset-bottom)] lg:hidden"
       >
         <ul className="flex h-[var(--bottom-nav-h)] items-stretch">
-          {PRIMARY_NAV.map((item) => {
+          {primary.map((item) => {
             const active = isActivePath(pathname, item.href);
             return (
               <li key={item.href} className="flex flex-1">
@@ -94,7 +95,7 @@ export function BottomNav({ footer }: { footer: ReactNode }) {
       <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
         <nav aria-label="More">
           <ul className="flex flex-col">
-            {MORE_NAV.map((item) => {
+            {more.map((item) => {
               const active = isActivePath(pathname, item.href);
               return (
                 <li key={item.href}>

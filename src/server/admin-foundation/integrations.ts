@@ -1,6 +1,8 @@
+import { isNull } from "drizzle-orm";
 import { integrationAccount } from "@/db/schema";
 import type { Env } from "@/lib/env";
 import type { Db } from "@/server/db-types";
+import { listStaff, type StaffListItem } from "@/server/staff/queries";
 
 export type IntegrationProviderId = "stripe" | "google" | "xero";
 export type IntegrationCardStatus = "connected" | "error" | "disconnected" | "not_configured";
@@ -32,8 +34,10 @@ const CARDS: ReadonlyArray<{
   {
     provider: "google",
     label: "Google Calendar",
-    description: "Two-way sync so bookings appear in Google and busy time blocks the diary.",
-    connectHref: "/api/integrations/google/connect",
+    description:
+      "Two-way sync so bookings appear in Google and busy time blocks the diary. Each stylist links their own calendar.",
+    // Per stylist: the connect links live on each person (see listGoogleByStylist and /staff).
+    connectHref: null,
   },
   {
     provider: "xero",
@@ -51,6 +55,27 @@ export function configuredProvidersFromEnv(env: Env): Record<IntegrationProvider
   };
 }
 
+/** One row per active team member with their Google Calendar status, for the integrations page. */
+export async function listGoogleByStylist(db: Db): Promise<StaffListItem[]> {
+  return (await listStaff(db)).filter((person) => person.active);
+}
+
+/** Roll the per-stylist Google links into one card status: any error wins, then any connected. */
+function googleCardStatus(
+  people: readonly StaffListItem[],
+): { status: IntegrationCardStatus; lastSyncAt: Date | null; lastError: string | null } {
+  const links = people.flatMap((p) => (p.google ? [p.google] : []));
+  const errored = links.find((l) => l.status === "error");
+  const connected = links.filter((l) => l.status === "connected");
+  const lastSyncAt =
+    links
+      .map((l) => l.lastSyncAt)
+      .filter((d): d is Date => d !== null)
+      .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+  if (errored) return { status: "error", lastSyncAt, lastError: errored.lastError };
+  return { status: connected.length > 0 ? "connected" : "disconnected", lastSyncAt, lastError: null };
+}
+
 /** Status cards for the integrations page. Reads integration_account but never selects the encrypted tokens. */
 export async function getIntegrationCards(
   db: Db,
@@ -64,11 +89,24 @@ export async function getIntegrationCards(
       lastSyncAt: integrationAccount.lastSyncAt,
       lastError: integrationAccount.lastError,
     })
-    .from(integrationAccount);
+    .from(integrationAccount)
+    // Stripe and Xero are business-wide; Google links belong to people (see below).
+    .where(isNull(integrationAccount.staffId));
+  const google = googleCardStatus(await listGoogleByStylist(db));
 
   return CARDS.map((card) => {
     const row = rows.find((r) => r.provider === card.provider);
     const isConfigured = configured[card.provider];
+    if (card.provider === "google") {
+      return {
+        ...card,
+        status: isConfigured ? google.status : "not_configured",
+        externalAccountId: null,
+        lastSyncAt: google.lastSyncAt,
+        lastError: google.lastError,
+        connectHref: null,
+      };
+    }
     let status: IntegrationCardStatus;
     if (!isConfigured) status = "not_configured";
     else if (row) status = row.status;
