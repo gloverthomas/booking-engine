@@ -1,0 +1,95 @@
+/* Waitlist pages. Built on the public flow's tokens (see ../styles/tokens.css); nothing here redefines them. */
+
+.rk-wl {
+  display: grid;
+  gap: var(--rk-s-6);
+  padding: var(--rk-s-6) var(--rk-gutter) var(--rk-s-8);
+  max-width: 44rem;
+  margin-inline: auto;
+}
+
+.rk-wl__title {
+  font-size: var(--rk-display-compact);
+}
+
+.rk-wl__lede {
+  font-size: var(--rk-text-md);
+  max-width: 36rem;
+}
+
+.rk-wl__selection {
+  border-top: var(--rk-rule) solid var(--rk-ink);
+  border-bottom: var(--rk-hair) solid var(--rk-ink);
+  padding: var(--rk-s-3) 0;
+  display: grid;
+  gap: var(--rk-s-1);
+}
+
+.rk-wl__selection strong {
+  font-family: var(--rk-font-display);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.rk-wl__days {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: var(--rk-s-2) var(--rk-s-4);
+}
+
+.rk-wl__select {
+  appearance: none;
+  border-radius: 0;
+}
+
+.rk-wl__promise {
+  font-size: var(--rk-text-sm);
+  color: var(--rk-ink-soft);
+}
+
+.rk-wl__offer {
+  background: var(--rk-ink);
+  color: var(--rk-peach);
+  padding: var(--rk-s-5);
+  display: grid;
+  gap: var(--rk-s-3);
+}
+
+.rk-wl__offer-when {
+  font-family: var(--rk-font-display);
+  font-weight: 900;
+  font-stretch: 88%;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+  word-spacing: 0.12em;
+  line-height: 0.95;
+  font-size: var(--rk-text-xl);
+}
+
+.rk-wl__offer ul {
+  display: grid;
+  gap: var(--rk-s-1);
+}
+
+.rk-wl__offer li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--rk-s-4);
+}
+
+.rk-wl__left {
+  font-family: var(--rk-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.rk-wl-cta {
+  display: grid;
+  gap: var(--rk-s-3);
+  justify-items: start;
+  border-top: var(--rk-rule) solid var(--rk-ink);
+  padding-top: var(--rk-s-4);
+}
+
+.rk-wl-cta__text {
+  font-weight: 600;
+}
