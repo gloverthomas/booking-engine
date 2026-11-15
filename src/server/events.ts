@@ -46,6 +46,7 @@ export const EVENT_CONSUMERS = [
   "consumer.notifications",
   "consumer.google",
   "consumer.xero",
+  "consumer.push",
 ] as const;
 
 /** Write inside the same transaction as the state change (transactional outbox). */

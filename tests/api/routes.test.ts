@@ -75,6 +75,8 @@ import { POST as reschedule } from "@/app/api/v1/bookings/[id]/reschedule/route"
 import { GET as searchClients } from "@/app/api/v1/clients/route";
 import { GET as getClient } from "@/app/api/v1/clients/[id]/route";
 import { GET as getMe } from "@/app/api/v1/me/route";
+import { DELETE as removeDevice, POST as addDevice } from "@/app/api/v1/devices/route";
+import { deviceToken } from "@/db/schema";
 import { GET as terminalConfig } from "@/app/api/v1/payments/terminal/route";
 import { POST as connectionToken } from "@/app/api/v1/payments/terminal/connection-token/route";
 import {
@@ -522,5 +524,60 @@ describe("Tap to Pay", () => {
     expect((await cardStart(req("/x", {}), ctx(mine))).status).toBe(401);
     expect((await connectionToken(req("/x", {}))).status).toBe(401);
     expect((await terminalConfig(req("/x"))).status).toBe(401);
+  });
+});
+
+describe("push devices", () => {
+  const TOKEN = "ExponentPushToken[abc123]";
+  const del = (body: unknown) =>
+    new Request(`${ORIGIN}/api/v1/devices`, {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+  test("registers this phone for the signed-in person, and repeating it is harmless", async () => {
+    as("stylist", otherStaffId);
+    expect((await addDevice(req("/x", { token: TOKEN }))).status).toBe(200);
+    expect((await addDevice(req("/x", { token: TOKEN }))).status).toBe(200);
+    const rows = await w.db.select().from(deviceToken);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ token: TOKEN, staffId: otherStaffId });
+  });
+
+  test("signing in on the same phone as someone else takes it over", async () => {
+    as("stylist", otherStaffId);
+    await addDevice(req("/x", { token: TOKEN }));
+    as("owner", w.staffId);
+    await addDevice(req("/x", { token: TOKEN }));
+    expect((await w.db.select().from(deviceToken))[0].staffId).toBe(w.staffId);
+  });
+
+  test("removes the phone on sign-out, only for its current owner", async () => {
+    as("stylist", otherStaffId);
+    await addDevice(req("/x", { token: TOKEN }));
+    as("owner", w.staffId);
+    await removeDevice(del({ token: TOKEN }));
+    expect(await w.db.select().from(deviceToken)).toHaveLength(1);
+    as("stylist", otherStaffId);
+    expect((await removeDevice(del({ token: TOKEN }))).status).toBe(200);
+    expect(await w.db.select().from(deviceToken)).toHaveLength(0);
+  });
+
+  test("a malformed token is a 422; a missing one too", async () => {
+    as("owner", w.staffId);
+    expect((await addDevice(req("/x", { token: "definitely-not-expo" }))).status).toBe(422);
+    expect((await addDevice(req("/x", {}))).status).toBe(422);
+  });
+
+  test("someone not linked to a staff profile cannot register one", async () => {
+    as("owner", null);
+    const res = await addDevice(req("/x", { token: TOKEN }));
+    expect(res.status).toBe(409);
+  });
+
+  test("signed out is 401", async () => {
+    expect((await addDevice(req("/x", { token: TOKEN }))).status).toBe(401);
+    expect((await removeDevice(del({ token: TOKEN }))).status).toBe(401);
   });
 });

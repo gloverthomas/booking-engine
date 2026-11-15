@@ -63,10 +63,26 @@ web admin uses, so permissions, audit and rules are identical. Customer-facing e
 Needs `STRIPE_TERMINAL_LOCATION_ID` (a Stripe Terminal Location for the salon address) and Stripe in-person
 payments enabled on the account. Tipping is not offered: Stripe lists it as unsupported on Tap to Pay.
 
+## Push notifications
+
+A `consumer.push` queue reads the same domain events as the others. It notifies the stylist the booking is
+with **and the owners** (one notification each) when:
+
+- a **client** makes a booking (bookings staff make themselves and imports are not news), and
+- a **client** cancels.
+
+The text is the client's first name, the services and the local time: no contact details, the same privacy
+rule as the SMS alerts. The business's "staff alerts" switch in Settings turns push off too. Delivery goes
+through Expo's push service (set `EXPO_ACCESS_TOKEN` only if you turn on enhanced push security); tokens Expo
+reports as gone are deleted. Delivery is at-least-once: a retry after a failed call to Expo can repeat a
+notification, which is preferable to dropping one.
+
+Not yet notified: reschedules and reassignments, waitlist claims, failed fee charges, a morning summary.
+
 ## Not built yet
 
-Push device registration and delivery, roster and timesheet endpoints, waitlist, and a generated OpenAPI
-document. See the phases in `docs/MOBILE.md`.
+Roster and timesheet endpoints, waitlist, and a generated OpenAPI document. See the phases in
+`docs/MOBILE.md`.
 
 ## Sign-in and the iOS client id
 

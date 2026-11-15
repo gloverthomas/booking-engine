@@ -28,6 +28,8 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   /** Stripe Terminal Location (tml_...) for the salon address. Needed to take Tap to Pay payments. */
+  /** Expo access token, if "enhanced push security" is on for the project. Optional. */
+  EXPO_ACCESS_TOKEN: z.string().optional(),
   STRIPE_TERMINAL_LOCATION_ID: z.string().optional(),
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),

@@ -654,3 +654,29 @@ export const waitlistOffer = pgTable(
     index("waitlist_offer_status_idx").on(t.status),
   ],
 );
+
+/* -------------------------------------------------------------------------- */
+/* Push notifications (the iPhone app)                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * One row per phone signed in to the app. The token is Expo's push token. It belongs to whoever signed in
+ * on that phone last, so handing a phone to someone else moves its notifications with it.
+ */
+export const deviceToken = pgTable(
+  "device_token",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    staffId: uuid("staff_id")
+      .notNull()
+      .references(() => staff.id, { onDelete: "cascade" }),
+    token: text("token").notNull(),
+    platform: text("platform").notNull().default("ios"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("device_token_token_uidx").on(t.token),
+    index("device_token_staff_idx").on(t.staffId),
+  ],
+);
