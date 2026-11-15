@@ -60,6 +60,15 @@ export const staffOfferingSchema = z
   })
   .transform(({ price, ...rest }) => ({ ...rest, priceCents: price }));
 
+/** One row of the seniority table. Blank price and duration both mean "inherit": no row is stored. */
+export const levelPriceSchema = z
+  .object({
+    level: z.number().int().min(0).max(50),
+    price: optionalDollars,
+    durationMin: z.number().int().min(5).max(720).nullish().default(null),
+  })
+  .transform(({ price, ...rest }) => ({ ...rest, priceCents: price }));
+
 export const serviceInputSchema = z
   .object({
     id: z.uuid().optional(),
@@ -77,6 +86,8 @@ export const serviceInputSchema = z
     sortOrder: z.number().int().min(0).max(10000).default(0),
     locationIds: z.array(z.uuid()).default([]),
     staff: z.array(staffOfferingSchema).default([]),
+    /** Omit to leave the seniority table untouched; send it (even empty) to replace it. */
+    levelPrices: z.array(levelPriceSchema).max(51).optional(),
   })
   .superRefine((value, ctx) => {
     const seen = new Set<string>();
@@ -100,6 +111,17 @@ export const serviceInputSchema = z
         });
       }
       staffSeen.add(offering.staffId);
+    }
+    const levelsSeen = new Set<number>();
+    for (const [index, row] of (value.levelPrices ?? []).entries()) {
+      if (levelsSeen.has(row.level)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["levelPrices", index, "level"],
+          message: "Each level can only be listed once",
+        });
+      }
+      levelsSeen.add(row.level);
     }
   })
   .transform(({ price, ...rest }) => ({ ...rest, priceCents: price }));

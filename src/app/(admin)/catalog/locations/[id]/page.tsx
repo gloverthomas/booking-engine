@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getDb } from "@/db/client";
 import { PageHeader } from "@/components/ui/page-header";
 import { getLocation } from "@/server/admin-foundation/catalog";
-import { requireOwner } from "@/server/auth";
+import { requireAccess } from "@/server/auth/access";
 import { LocationForm } from "../../_components/location-form";
 
 export const metadata: Metadata = { title: "Edit location" };
@@ -19,7 +19,7 @@ export default function EditLocationPage({ params }: { params: Promise<{ id: str
 }
 
 async function EditLocationBody({ params }: { params: Promise<{ id: string }> }) {
-  await requireOwner();
+  await requireAccess("catalog.edit");
   const { id } = await params;
   if (!z.uuid().safeParse(id).success) notFound();
   const location = await getLocation(getDb(), id);

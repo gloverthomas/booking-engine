@@ -4,6 +4,7 @@ import {
   bookingService,
   location,
   service,
+  serviceLevelPrice,
   serviceLocation,
   serviceStaff,
   staff,
@@ -24,9 +25,17 @@ export interface StaffOffering {
   durationMin: number | null;
 }
 
+export interface LevelPriceRow {
+  level: number;
+  priceCents: number | null;
+  durationMin: number | null;
+}
+
 export interface ServiceDetail extends ServiceRow {
   locationIds: string[];
   staff: StaffOffering[];
+  /** Seniority prices, lowest level first. */
+  levelPrices: LevelPriceRow[];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -47,10 +56,11 @@ export async function getLocation(db: Db, id: string): Promise<LocationRow | nul
 }
 
 export async function listServices(db: Db): Promise<ServiceDetail[]> {
-  const [services, links, offerings] = await Promise.all([
+  const [services, links, offerings, levels] = await Promise.all([
     db.select().from(service).orderBy(asc(service.sortOrder), asc(service.name)),
     db.select().from(serviceLocation),
     db.select().from(serviceStaff),
+    db.select().from(serviceLevelPrice).orderBy(asc(serviceLevelPrice.level)),
   ]);
   return services.map((row) => ({
     ...row,
@@ -58,6 +68,9 @@ export async function listServices(db: Db): Promise<ServiceDetail[]> {
     staff: offerings
       .filter((o) => o.serviceId === row.id)
       .map((o) => ({ staffId: o.staffId, priceCents: o.priceCents, durationMin: o.durationMin })),
+    levelPrices: levels
+      .filter((l) => l.serviceId === row.id)
+      .map((l) => ({ level: l.level, priceCents: l.priceCents, durationMin: l.durationMin })),
   }));
 }
 
@@ -151,12 +164,35 @@ export async function saveService(
       );
     }
 
+    // Only the filled-in rows are stored; a blank row means "inherit the service price".
+    const levelRows = (input.levelPrices ?? []).filter(
+      (row) => row.priceCents !== null || row.durationMin !== null,
+    );
+    if (input.levelPrices !== undefined) {
+      await tx.delete(serviceLevelPrice).where(eq(serviceLevelPrice.serviceId, id));
+      if (levelRows.length > 0) {
+        await tx.insert(serviceLevelPrice).values(
+          levelRows.map((row) => ({
+            serviceId: id,
+            level: row.level,
+            priceCents: row.priceCents,
+            durationMin: row.durationMin,
+          })),
+        );
+      }
+    }
+
     await recordAudit(tx, {
       actor,
       action: input.id ? "service.updated" : "service.created",
       entityType: "service",
       entityId: id,
-      data: { name: input.name, priceCents: input.priceCents, active: input.active },
+      data: {
+        name: input.name,
+        priceCents: input.priceCents,
+        active: input.active,
+        ...(input.levelPrices !== undefined ? { levelRows: levelRows.length } : {}),
+      },
     });
     return { id };
   });

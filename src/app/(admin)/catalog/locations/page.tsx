@@ -8,7 +8,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { listLocations } from "@/server/admin-foundation/catalog";
-import { requireOwner } from "@/server/auth";
+import { requireAccess } from "@/server/auth/access";
 import { CatalogNav } from "../_components/catalog-nav";
 
 export const metadata: Metadata = { title: "Locations" };
@@ -22,7 +22,7 @@ export default function LocationsPage() {
 }
 
 async function LocationsBody() {
-  await requireOwner();
+  await requireAccess("catalog.edit");
   const locations = await listLocations(getDb());
 
   return (
