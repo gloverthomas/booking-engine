@@ -21,6 +21,10 @@ export interface AvailabilityQuery {
 
 export interface AvailableSlot extends TimeSlot {
   staffId: string;
+  /** Total for the selected services at this stylist's price (own or level pricing applied). */
+  totalCents?: number;
+  /** Total length of the selected services for this stylist, in minutes (excludes the buffer). */
+  durationMin?: number;
 }
 
 export interface ClientInput {

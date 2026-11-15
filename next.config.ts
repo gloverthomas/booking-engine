@@ -14,6 +14,11 @@ const ADMIN_PATHS = [
   "/reports/:path*",
   "/integrations/:path*",
   "/settings/:path*",
+  "/staff/:path*",
+  "/roster/:path*",
+  "/timesheets/:path*",
+  "/team/:path*",
+  "/waitlist/:path*",
 ];
 
 const nextConfig: NextConfig = {

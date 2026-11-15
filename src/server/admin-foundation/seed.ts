@@ -118,7 +118,10 @@ export async function seedDatabase(db: Db): Promise<SeedResult> {
       .where(and(eq(staff.businessId, biz.id), eq(staff.name, "Ryan")));
     const staffCreated = !ryan;
     if (!ryan) {
-      [ryan] = await tx.insert(staff).values({ businessId: biz.id, name: "Ryan" }).returning();
+      [ryan] = await tx
+        .insert(staff)
+        .values({ businessId: biz.id, name: "Ryan", role: "owner" })
+        .returning();
     }
     if (!ryan) throw new Error("Could not create the stylist");
 

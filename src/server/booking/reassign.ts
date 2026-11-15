@@ -142,6 +142,7 @@ export async function reassignBooking(db: Db, input: ReassignInput): Promise<voi
         bookingId: row.id,
         previousStart: row.during.start.toISOString(),
         notifyClient: input.notifyClient ?? true,
+        previousStaffId: row.staffId,
       });
       await recordAudit(tx, {
         actor,

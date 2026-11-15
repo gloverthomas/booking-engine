@@ -78,7 +78,7 @@ describe("reassignBooking: the move", () => {
     expect(after.totalCents).toBe(before.totalCents);
   });
 
-  test("emits booking.rescheduled with notifyClient true by default and false when asked", async () => {
+  test("emits booking.rescheduled with the previous stylist, and notifyClient true by default / false when asked", async () => {
     const first = await confirmed(w);
     await reassign(first.bookingId);
     const second = await confirmed(w, { start: local("2026-11-02T14:00") });
@@ -89,11 +89,13 @@ describe("reassignBooking: the move", () => {
         bookingId: first.bookingId,
         previousStart: local("2026-11-02T10:00").toISOString(),
         notifyClient: true,
+        previousStaffId: w.staffId,
       },
       {
         bookingId: second.bookingId,
         previousStart: local("2026-11-02T14:00").toISOString(),
         notifyClient: false,
+        previousStaffId: w.staffId,
       },
     ]);
   });

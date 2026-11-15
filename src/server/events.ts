@@ -18,7 +18,14 @@ export type DomainEvent =
       /** Extra fee to charge the saved card; 0 when none. */
       feeCents: number;
     }
-  | { type: "booking.rescheduled"; bookingId: string; previousStart: string; notifyClient: boolean }
+  | {
+      type: "booking.rescheduled";
+      bookingId: string;
+      previousStart: string;
+      notifyClient: boolean;
+      /** Set when the booking moved to a different stylist (reassignBooking). */
+      previousStaffId?: string;
+    }
   | { type: "booking.completed"; bookingId: string }
   /** An unpaid hold lapsed and its slot is free again. Emitted by expireHolds. */
   | { type: "booking.expired"; bookingId: string }
