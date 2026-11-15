@@ -14,14 +14,16 @@ export default function BookingsReportPage({ searchParams }: { searchParams: Sea
     <ReportPageShell
       searchParams={searchParams}
       render={async (ctx) => {
-        const tableCtx = { timezone: ctx.timezone, now: ctx.now, query: ctx.query };
-        const [report, utilisation, weekdays, hours, byDay] = await Promise.all([
+        const tableCtx = ctx.tableContext;
+        const [report, utilisation, byStaff, weekdays, hours, byDay] = await Promise.all([
           getBookingsReport(ctx.db, {
             timezone: ctx.timezone,
             from: ctx.params.from,
             to: ctx.params.to,
+            staffId: ctx.staffId,
           }),
           buildReportTable(ctx.db, "utilisation", tableCtx),
+          buildReportTable(ctx.db, "utilisation-by-staff", tableCtx),
           buildReportTable(ctx.db, "busiest-weekdays", tableCtx),
           buildReportTable(ctx.db, "busiest-hours", tableCtx),
           buildReportTable(ctx.db, "bookings-by-day", tableCtx),
@@ -30,7 +32,12 @@ export default function BookingsReportPage({ searchParams }: { searchParams: Sea
         const status = report.statusCounts;
         return (
           <>
-            <DateRangeForm path="/reports/bookings" params={ctx.params} presets={ctx.presets} />
+            <DateRangeForm
+              path="/reports/bookings"
+              params={ctx.params}
+              presets={ctx.presets}
+              staffOptions={ctx.staffOptions}
+            />
             <StatTiles
               tiles={[
                 {
@@ -95,6 +102,7 @@ export default function BookingsReportPage({ searchParams }: { searchParams: Sea
                 />
               </Card>
             </div>
+            <DataTable table={byStaff} exportQuery={qs} />
             <DataTable table={utilisation} exportQuery={qs} />
             <DataTable table={weekdays} exportQuery={qs} />
             <DataTable table={hours} exportQuery={qs} />

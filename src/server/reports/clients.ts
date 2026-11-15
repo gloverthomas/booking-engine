@@ -61,7 +61,7 @@ const COUNTED = ["succeeded", "partially_refunded", "refunded"] as const;
 const MAX_MERGE_HOPS = 10;
 
 /** Follow merged_into_id so a merged duplicate's history rolls up into the surviving client. */
-function makeCanonical(clients: ReadonlyArray<{ id: string; mergedIntoId: string | null }>) {
+export function makeCanonical(clients: ReadonlyArray<{ id: string; mergedIntoId: string | null }>) {
   const parent = new Map(clients.map((c) => [c.id, c.mergedIntoId]));
   return (id: string): string => {
     let current = id;

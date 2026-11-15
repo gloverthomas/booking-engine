@@ -9,15 +9,12 @@ export const metadata = { title: "Outstanding balances" };
 export default function OutstandingReportPage({ searchParams }: { searchParams: SearchParams }) {
   return (
     <ReportPageShell
+      access="all"
       searchParams={searchParams}
       render={async (ctx) => {
         const [report, table] = await Promise.all([
           getOutstandingReport(ctx.db, { now: ctx.now }),
-          buildReportTable(ctx.db, "outstanding", {
-            timezone: ctx.timezone,
-            now: ctx.now,
-            query: {},
-          }),
+          buildReportTable(ctx.db, "outstanding", ctx.tableContext),
         ]);
         return (
           <>

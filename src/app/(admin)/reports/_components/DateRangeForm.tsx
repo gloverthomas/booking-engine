@@ -12,10 +12,19 @@ interface DateRangeFormProps {
   granularity?: boolean;
   /** Offer the group by location / service picker. */
   groupBy?: boolean;
+  /** Offer "Stylist" in the split picker and a stylist filter. Only pass for roles that see everyone. */
+  staffOptions?: Array<{ id: string; name: string }>;
 }
 
 /** Date range picker: two date fields, quick presets, and optional grouping. A plain GET form, so it needs no JavaScript. */
-export function DateRangeForm({ path, params, presets, granularity, groupBy }: DateRangeFormProps) {
+export function DateRangeForm({
+  path,
+  params,
+  presets,
+  granularity,
+  groupBy,
+  staffOptions = [],
+}: DateRangeFormProps) {
   return (
     <section className="rpt-range" aria-label="Date range">
       <form method="get" action={path}>
@@ -42,11 +51,24 @@ export function DateRangeForm({ path, params, presets, granularity, groupBy }: D
               <option value="none">Nothing</option>
               <option value="location">Location</option>
               <option value="service">Service</option>
+              {staffOptions.length > 0 ? <option value="staff">Stylist</option> : null}
             </Select>
           </Field>
         ) : (
           <input type="hidden" name="groupBy" value={params.groupBy} />
         )}
+        {staffOptions.length > 0 ? (
+          <Field label="Stylist">
+            <Select name="staff" defaultValue={params.staff ?? ""}>
+              <option value="">Everyone</option>
+              {staffOptions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : null}
         <Button type="submit">Apply</Button>
       </form>
       <div className="rpt-presets" role="group" aria-label="Quick ranges">

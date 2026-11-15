@@ -4,21 +4,31 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
-const TABS = [
+interface Tab {
+  href: string;
+  label: string;
+  /** Whole-business pages: only for roles with reports.viewAll. */
+  businessWide?: boolean;
+}
+
+const TABS: readonly Tab[] = [
   { href: "/reports", label: "Overview" },
   { href: "/reports/revenue", label: "Revenue" },
   { href: "/reports/bookings", label: "Bookings" },
   { href: "/reports/cancellations", label: "Cancellations" },
-  { href: "/reports/clients", label: "Clients" },
-  { href: "/reports/outstanding", label: "Outstanding" },
-] as const;
+  { href: "/reports/clients", label: "Clients", businessWide: true },
+  { href: "/reports/outstanding", label: "Outstanding", businessWide: true },
+];
 
-function Tabs() {
+const visible = (showBusinessWide: boolean) =>
+  TABS.filter((t) => showBusinessWide || !t.businessWide);
+
+function Tabs({ showBusinessWide }: { showBusinessWide: boolean }) {
   const pathname = usePathname();
   const search = useSearchParams().toString();
   return (
     <nav className="rpt-nav" aria-label="Report sections">
-      {TABS.map((tab) => (
+      {visible(showBusinessWide).map((tab) => (
         <Link
           key={tab.href}
           // Keep the chosen date range while moving between reports.
@@ -32,13 +42,13 @@ function Tabs() {
   );
 }
 
-export function ReportNav() {
+export function ReportNav({ showBusinessWide = false }: { showBusinessWide?: boolean }) {
   // useSearchParams needs a Suspense boundary under Cache Components.
   return (
     <Suspense
       fallback={
         <nav className="rpt-nav" aria-label="Report sections">
-          {TABS.map((t) => (
+          {visible(showBusinessWide).map((t) => (
             <Link key={t.href} href={t.href}>
               {t.label}
             </Link>
@@ -46,7 +56,7 @@ export function ReportNav() {
         </nav>
       }
     >
-      <Tabs />
+      <Tabs showBusinessWide={showBusinessWide} />
     </Suspense>
   );
 }
