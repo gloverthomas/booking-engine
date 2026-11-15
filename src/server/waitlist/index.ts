@@ -25,3 +25,13 @@ export {
 export { handleWaitlistEvent, type WaitlistEventContext } from "./consumer";
 export { OfferGoneError, WaitlistDisabledError } from "./errors";
 export type { WaitlistOptions } from "./shared";
+export {
+  listOfferableSlots,
+  listWaitlist,
+  type AdminEntryRow,
+  type AdminOfferRow,
+  type OfferableSlot,
+  type OfferableSlots,
+  type WaitlistView,
+} from "./admin";
+export { offerSlot, removeEntry, offerSlotSchema, removeEntrySchema } from "./admin-commands";
