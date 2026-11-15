@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { eq } from "drizzle-orm";
-import { booking, bookingService, business, client, deviceToken, staff } from "@/db/schema";
+import { bookingService, business, client, deviceToken, staff } from "@/db/schema";
 import { handlePushEvent } from "@/server/push";
 import {
   ownerIds,

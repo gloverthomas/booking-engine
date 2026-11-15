@@ -56,12 +56,14 @@ describe("createExpoSender", () => {
   });
 
   test("sends the access token when one is configured", async () => {
-    const fetchMock = vi.fn(async () => reply({ data: [{ status: "ok" }] }));
+    const fetchMock = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(async () =>
+      reply({ data: [{ status: "ok" }] }),
+    );
     await createExpoSender({
       accessToken: "secret",
       fetch: fetchMock as unknown as typeof fetch,
     }).send([msg(1)]);
-    const init = fetchMock.mock.calls[0][1] as unknown as RequestInit;
+    const init = fetchMock.mock.calls[0][1];
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer secret");
   });
 
