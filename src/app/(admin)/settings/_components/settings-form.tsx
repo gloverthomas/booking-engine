@@ -222,7 +222,10 @@ export function SettingsForm({ initial }: { initial: BusinessSettings }) {
       </Card>
 
       <Card aria-labelledby="set-waitlist">
-        <CardHeader eyebrow="Waitlist" title={<span id="set-waitlist">When the day is full</span>} />
+        <CardHeader
+          eyebrow="Waitlist"
+          title={<span id="set-waitlist">When the day is full</span>}
+        />
         <CardBody className="grid gap-4 sm:grid-cols-2">
           <Switch
             label="Let clients join a waitlist"

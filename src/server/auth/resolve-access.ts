@@ -62,7 +62,10 @@ async function provisionOwner(db: Db, user: SignedInUser, email: string): Promis
     const existing = pickRow(rows, user.id);
     if (existing) {
       if (!existing.active || existing.role !== "owner") {
-        await tx.update(staff).set({ active: true, role: "owner" }).where(eq(staff.id, existing.id));
+        await tx
+          .update(staff)
+          .set({ active: true, role: "owner" })
+          .where(eq(staff.id, existing.id));
       }
       if (existing.userId !== user.id) await linkUser(tx, existing, user.id);
       return toSession(user, existing, "owner");
@@ -88,11 +91,7 @@ export async function resolveAccess(
   ownerEmails: ReadonlySet<string>,
 ): Promise<AccessSession | null> {
   const email = normaliseEmail(user.email);
-  const rows = await db
-    .select()
-    .from(staff)
-    .where(emailIs(email))
-    .orderBy(asc(staff.createdAt));
+  const rows = await db.select().from(staff).where(emailIs(email)).orderBy(asc(staff.createdAt));
   const row = pickRow(rows, user.id);
 
   if (isOwnerEmail(email, ownerEmails)) {

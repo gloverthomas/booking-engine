@@ -49,7 +49,12 @@ describe("requireAccess / requireStaffSession", () => {
     requireAccessSession.mockResolvedValue(reception);
     const { accessAction } = await import("@/server/auth/run-action");
     const { z } = await import("zod");
-    const ok = await accessAction("waitlist.manage", z.object({}), {}, async (_p, ctx) => ctx.actor);
+    const ok = await accessAction(
+      "waitlist.manage",
+      z.object({}),
+      {},
+      async (_p, ctx) => ctx.actor,
+    );
     expect(ok).toEqual({ ok: true, data: "staff:u1" });
     const denied = await accessAction("settings.edit", z.object({}), {}, async () => "ran");
     expect(denied).toMatchObject({ ok: false });

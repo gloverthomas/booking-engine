@@ -66,7 +66,9 @@ export function GoogleCalendarControl({ staffId, google, configured }: Props) {
         </span>
         <Badge tone={status.tone}>{status.label}</Badge>
       </div>
-      {google?.calendar ? <p className="truncate text-sm text-ink-muted">{google.calendar}</p> : null}
+      {google?.calendar ? (
+        <p className="truncate text-sm text-ink-muted">{google.calendar}</p>
+      ) : null}
       {google?.lastSyncText ? (
         <p className="text-xs text-ink-subtle">Last sync {google.lastSyncText}</p>
       ) : null}

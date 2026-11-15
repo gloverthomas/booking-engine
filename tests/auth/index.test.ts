@@ -82,7 +82,9 @@ describe("requireOwner / getOwnerSession wiring", () => {
     resolveAccess.mockResolvedValue(null);
     const { requireOwner, requireAccessSession, getAccessSession } = await import("@/server/auth");
     await expect(requireOwner()).rejects.toThrow("NEXT_REDIRECT:/login?error=not_authorised");
-    await expect(requireAccessSession()).rejects.toThrow("NEXT_REDIRECT:/login?error=not_authorised");
+    await expect(requireAccessSession()).rejects.toThrow(
+      "NEXT_REDIRECT:/login?error=not_authorised",
+    );
     await expect(getAccessSession()).resolves.toBeNull();
   });
 

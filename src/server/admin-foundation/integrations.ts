@@ -61,9 +61,11 @@ export async function listGoogleByStylist(db: Db): Promise<StaffListItem[]> {
 }
 
 /** Roll the per-stylist Google links into one card status: any error wins, then any connected. */
-function googleCardStatus(
-  people: readonly StaffListItem[],
-): { status: IntegrationCardStatus; lastSyncAt: Date | null; lastError: string | null } {
+function googleCardStatus(people: readonly StaffListItem[]): {
+  status: IntegrationCardStatus;
+  lastSyncAt: Date | null;
+  lastError: string | null;
+} {
   const links = people.flatMap((p) => (p.google ? [p.google] : []));
   const errored = links.find((l) => l.status === "error");
   const connected = links.filter((l) => l.status === "connected");
@@ -73,7 +75,11 @@ function googleCardStatus(
       .filter((d): d is Date => d !== null)
       .sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
   if (errored) return { status: "error", lastSyncAt, lastError: errored.lastError };
-  return { status: connected.length > 0 ? "connected" : "disconnected", lastSyncAt, lastError: null };
+  return {
+    status: connected.length > 0 ? "connected" : "disconnected",
+    lastSyncAt,
+    lastError: null,
+  };
 }
 
 /** Status cards for the integrations page. Reads integration_account but never selects the encrypted tokens. */

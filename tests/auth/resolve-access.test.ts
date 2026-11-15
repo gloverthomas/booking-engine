@@ -101,7 +101,9 @@ describe("resolveAccess", () => {
 
   test("a deactivated or unknown person is refused on their very next request", async () => {
     const mia = await createStaff(h.db, businessId, { email: "mia@example.com" });
-    expect(await resolveAccess(h.db, { id: "u2", email: "mia@example.com" }, owners)).not.toBeNull();
+    expect(
+      await resolveAccess(h.db, { id: "u2", email: "mia@example.com" }, owners),
+    ).not.toBeNull();
     await h.db.update(staff).set({ active: false }).where(eq(staff.id, mia.id));
     expect(await resolveAccess(h.db, { id: "u2", email: "mia@example.com" }, owners)).toBeNull();
     expect(await resolveAccess(h.db, { id: "u9", email: "nobody@example.com" }, owners)).toBeNull();
@@ -115,7 +117,9 @@ describe("resolveAccess", () => {
   });
 
   test("with no OWNER_EMAILS a stranger is never promoted (fail closed)", async () => {
-    expect(await resolveAccess(h.db, { id: "u1", email: "ryan@example.com" }, parseOwnerEmails(""))).toBeNull();
+    expect(
+      await resolveAccess(h.db, { id: "u1", email: "ryan@example.com" }, parseOwnerEmails("")),
+    ).toBeNull();
     expect(await rows()).toHaveLength(0);
   });
 

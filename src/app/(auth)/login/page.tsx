@@ -36,7 +36,8 @@ export default function LoginPage({ searchParams }: { searchParams: SearchParams
           <SignInPanel searchParams={searchParams} />
         </Suspense>
         <p className="text-sm text-ink-muted">
-          Only the owner and the team they have added can sign in, each with their own Google account. Clients book on the public booking page.
+          Only the owner and the team they have added can sign in, each with their own Google
+          account. Clients book on the public booking page.
         </p>
       </section>
     </main>

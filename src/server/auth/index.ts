@@ -32,8 +32,7 @@ function getGuard(): AccessGuard {
       const requestHeaders = await headers();
       return getAuth().api.getSession({ headers: requestHeaders });
     },
-    resolveAccess: (user) =>
-      resolveAccess(getDb(), user, parseOwnerEmails(getEnv().OWNER_EMAILS)),
+    resolveAccess: (user) => resolveAccess(getDb(), user, parseOwnerEmails(getEnv().OWNER_EMAILS)),
     redirectToLogin: (reason) => redirect(reason ? `/login?error=${reason}` : "/login"),
     onError: (error) => {
       // Never swallow Next's own control-flow errors (dynamic-API bailouts during prerender, redirects).

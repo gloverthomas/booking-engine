@@ -151,7 +151,10 @@ describe("staff commands", () => {
     });
 
     test("saving with no changes writes nothing", async () => {
-      const mia = await createStaff(h.db, businessId, { name: "Mia Chen", email: "mia@example.com" });
+      const mia = await createStaff(h.db, businessId, {
+        name: "Mia Chen",
+        email: "mia@example.com",
+      });
       await updateStaffMember(asOwner(), mia.id, input());
       expect(await audits("staff.updated")).toHaveLength(0);
     });
@@ -165,7 +168,9 @@ describe("staff commands", () => {
 
     test("keeping their own email is not a clash", async () => {
       const mia = await createStaff(h.db, businessId, { email: "mia@example.com" });
-      await expect(updateStaffMember(asOwner(), mia.id, input({ name: "New" }))).resolves.toBeUndefined();
+      await expect(
+        updateStaffMember(asOwner(), mia.id, input({ name: "New" })),
+      ).resolves.toBeUndefined();
     });
 
     test("an unknown id is a friendly not-found", async () => {
@@ -176,7 +181,11 @@ describe("staff commands", () => {
 
     test("a manager cannot edit an owner or grant owner", async () => {
       await expect(
-        updateStaffMember(asManager(), ownerRow.id, input({ email: "ryan@example.com", role: "owner" })),
+        updateStaffMember(
+          asManager(),
+          ownerRow.id,
+          input({ email: "ryan@example.com", role: "owner" }),
+        ),
       ).rejects.toMatchObject({ code: "forbidden" });
       const mia = await createStaff(h.db, businessId, { email: "mia@example.com" });
       await expect(
@@ -203,7 +212,11 @@ describe("staff commands", () => {
     });
 
     test("an inactive second owner does not count as another owner", async () => {
-      await createStaff(h.db, businessId, { email: "second@example.com", role: "owner", active: false });
+      await createStaff(h.db, businessId, {
+        email: "second@example.com",
+        role: "owner",
+        active: false,
+      });
       await expect(
         updateStaffMember(
           asOwner(),
@@ -223,7 +236,11 @@ describe("staff commands", () => {
         updateStaffMember(ctx, ownerRow.id, input({ email: "new@example.com", role: "owner" })),
       ).rejects.toMatchObject({ code: "env_owner" });
       await expect(
-        updateStaffMember(ctx, ownerRow.id, input({ name: "Ryan K", email: "ryan@example.com", role: "owner" })),
+        updateStaffMember(
+          ctx,
+          ownerRow.id,
+          input({ name: "Ryan K", email: "ryan@example.com", role: "owner" }),
+        ),
       ).resolves.toBeUndefined();
     });
 
@@ -265,19 +282,30 @@ describe("staff commands", () => {
       await expect(setStaffActive(asOwner(), mia.id, true)).rejects.toMatchObject({
         code: "email_taken",
       });
-      const free = await createStaff(h.db, businessId, { email: "free@example.com", active: false });
+      const free = await createStaff(h.db, businessId, {
+        email: "free@example.com",
+        active: false,
+      });
       await setStaffActive(asOwner(), free.id, true);
       expect(await audits("staff.reactivated")).toHaveLength(1);
     });
 
     test("nobody can deactivate themselves", async () => {
-      const mia = await createStaff(h.db, businessId, { email: "mia@example.com", role: "manager" });
+      const mia = await createStaff(h.db, businessId, {
+        email: "mia@example.com",
+        role: "manager",
+      });
       const self = ctxFor({ role: "manager", staffId: mia.id }, "staff:u-mia");
-      await expect(setStaffActive(self, mia.id, false)).rejects.toMatchObject({ code: "forbidden" });
+      await expect(setStaffActive(self, mia.id, false)).rejects.toMatchObject({
+        code: "forbidden",
+      });
     });
 
     test("a manager cannot deactivate or reactivate an owner", async () => {
-      const second = await createStaff(h.db, businessId, { email: "second@example.com", role: "owner" });
+      const second = await createStaff(h.db, businessId, {
+        email: "second@example.com",
+        role: "owner",
+      });
       await expect(setStaffActive(asManager(), second.id, false)).rejects.toMatchObject({
         code: "forbidden",
       });
@@ -288,7 +316,10 @@ describe("staff commands", () => {
     });
 
     test("the last active owner can never be deactivated", async () => {
-      const other = await createStaff(h.db, businessId, { email: "x@example.com", role: "manager" });
+      const other = await createStaff(h.db, businessId, {
+        email: "x@example.com",
+        role: "manager",
+      });
       const asOtherOwner = ctxFor({ role: "owner", staffId: other.id });
       await expect(setStaffActive(asOtherOwner, ownerRow.id, false)).rejects.toMatchObject({
         code: "last_owner",
@@ -298,15 +329,24 @@ describe("staff commands", () => {
     });
 
     test("an OWNER_EMAILS owner cannot be deactivated from the team list", async () => {
-      const second = await createStaff(h.db, businessId, { email: "second@example.com", role: "owner" });
+      const second = await createStaff(h.db, businessId, {
+        email: "second@example.com",
+        role: "owner",
+      });
       const ctx = ctxFor({ role: "owner", staffId: second.id }, "owner:x", "ryan@example.com");
-      await expect(setStaffActive(ctx, ownerRow.id, false)).rejects.toMatchObject({ code: "env_owner" });
+      await expect(setStaffActive(ctx, ownerRow.id, false)).rejects.toMatchObject({
+        code: "env_owner",
+      });
     });
   });
 
   describe("listStaff", () => {
     test("lists active first by name, with Google status and no tokens", async () => {
-      const mia = await createStaff(h.db, businessId, { name: "Mia", email: "mia@example.com", userId: "u9" });
+      const mia = await createStaff(h.db, businessId, {
+        name: "Mia",
+        email: "mia@example.com",
+        userId: "u9",
+      });
       await createStaff(h.db, businessId, { name: "Zed", email: "z@example.com", active: false });
       const { integrationAccount } = await import("@/db/schema");
       await h.db.insert(integrationAccount).values({

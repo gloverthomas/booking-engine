@@ -73,8 +73,8 @@ async function IntegrationsBody() {
             Google Calendar by stylist
           </h2>
           <p className="text-sm text-ink-muted">
-            Each person links their own calendar, so their bookings land in their own Google
-            diary. You can also manage this from Staff.
+            Each person links their own calendar, so their bookings land in their own Google diary.
+            You can also manage this from Staff.
           </p>
         </div>
         <ul className="grid gap-4 lg:grid-cols-2">

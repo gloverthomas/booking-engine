@@ -16,8 +16,8 @@ export function NotAllowed() {
         This isn&apos;t part of your access
       </h1>
       <p className="text-ink-muted">
-        Your role doesn&apos;t include this page. If you think it should, ask the owner to check your
-        role under Staff.
+        Your role doesn&apos;t include this page. If you think it should, ask the owner to check
+        your role under Staff.
       </p>
       <div>
         <ButtonLink href={ADMIN_HOME}>Back to the calendar</ButtonLink>

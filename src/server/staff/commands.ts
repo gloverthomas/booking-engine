@@ -44,7 +44,11 @@ async function loadStaff(tx: Db, id: string): Promise<StaffRow> {
 }
 
 /** Managers run the team but cannot create, edit, deactivate or promote to owner. */
-function assertMayTouchOwners(ctx: StaffCommandContext, target: { role: StaffRole } | null, nextRole?: StaffRole) {
+function assertMayTouchOwners(
+  ctx: StaffCommandContext,
+  target: { role: StaffRole } | null,
+  nextRole?: StaffRole,
+) {
   if (ctx.caller.role === "owner") return;
   if (target?.role === "owner") {
     throw forbidden("Only an owner can change an owner.");
@@ -61,11 +65,7 @@ async function assertEmailFree(tx: Db, email: string, exceptId?: string): Promis
     .select({ id: staff.id })
     .from(staff)
     .where(
-      and(
-        emailIs(email),
-        eq(staff.active, true),
-        exceptId ? ne(staff.id, exceptId) : undefined,
-      ),
+      and(emailIs(email), eq(staff.active, true), exceptId ? ne(staff.id, exceptId) : undefined),
     )
     .limit(1);
   if (clash.length > 0) {

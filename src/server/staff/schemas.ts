@@ -12,7 +12,8 @@ export const ROLE_LABELS: Record<(typeof STAFF_ROLES)[number], string> = {
 /** One line saying what each role may do, shown beside the role picker. */
 export const ROLE_HINTS: Record<(typeof STAFF_ROLES)[number], string> = {
   owner: "Everything, including settings, integrations and refunds.",
-  manager: "Runs the day: all calendars, roster, catalog, reports and the team. No settings or money.",
+  manager:
+    "Runs the day: all calendars, roster, catalog, reports and the team. No settings or money.",
   stylist: "Their own calendar, clients, roster, timesheet and numbers.",
   reception: "Books and checks out for everyone, manages the waitlist. No reports.",
 };

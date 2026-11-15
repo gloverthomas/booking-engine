@@ -62,9 +62,15 @@ describe("evaluateIdentityWithStaff", () => {
   const isStaff = async (email: string) => staffEmails.has(email);
 
   test("admits owners and active staff, refuses strangers", async () => {
-    expect(await evaluateIdentityWithStaff({ email: "Ryan@example.com" }, owners, isStaff)).toBeNull();
-    expect(await evaluateIdentityWithStaff({ email: "MIA@example.com" }, owners, isStaff)).toBeNull();
-    expect(await evaluateIdentityWithStaff({ email: "x@example.com" }, owners, isStaff)).toMatchObject({
+    expect(
+      await evaluateIdentityWithStaff({ email: "Ryan@example.com" }, owners, isStaff),
+    ).toBeNull();
+    expect(
+      await evaluateIdentityWithStaff({ email: "MIA@example.com" }, owners, isStaff),
+    ).toBeNull();
+    expect(
+      await evaluateIdentityWithStaff({ email: "x@example.com" }, owners, isStaff),
+    ).toMatchObject({
       error: "not_authorised",
     });
     expect(await evaluateIdentityWithStaff({ email: null }, owners, isStaff)).toMatchObject({
@@ -74,14 +80,22 @@ describe("evaluateIdentityWithStaff", () => {
 
   test("still insists on a verified email for staff", async () => {
     expect(
-      await evaluateIdentityWithStaff({ email: "mia@example.com", emailVerified: false }, owners, isStaff),
+      await evaluateIdentityWithStaff(
+        { email: "mia@example.com", emailVerified: false },
+        owners,
+        isStaff,
+      ),
     ).toMatchObject({ error: "email_not_verified" });
   });
 
   test("an unverified owner email is refused without asking the staff list", async () => {
     const lookup = vi.fn(async () => true);
     expect(
-      await evaluateIdentityWithStaff({ email: "ryan@example.com", emailVerified: false }, owners, lookup),
+      await evaluateIdentityWithStaff(
+        { email: "ryan@example.com", emailVerified: false },
+        owners,
+        lookup,
+      ),
     ).toMatchObject({ error: "email_not_verified" });
     expect(lookup).not.toHaveBeenCalled();
   });
@@ -97,7 +111,11 @@ describe("createAccessAction", () => {
       if (role === "signedOut") throw new Error("NEXT_REDIRECT");
       return assertAccess(session(role === "denied" ? "stylist" : role), permission);
     });
-    return { action: createAccessAction({ requireAccess, getDb: () => db, log }), log, requireAccess };
+    return {
+      action: createAccessAction({ requireAccess, getDb: () => db, log }),
+      log,
+      requireAccess,
+    };
   }
 
   test("runs the handler with the db and a role-based actor", async () => {
@@ -124,7 +142,9 @@ describe("createAccessAction", () => {
 
   test("a sign-in redirect propagates", async () => {
     const { action } = setup("signedOut");
-    await expect(action("staff.manage", schema, { n: 1 }, async () => 1)).rejects.toThrow("NEXT_REDIRECT");
+    await expect(action("staff.manage", schema, { n: 1 }, async () => 1)).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
   });
 
   test("invalid input returns field errors and skips the handler", async () => {
