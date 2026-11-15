@@ -4,6 +4,7 @@ import { createLogger } from "@/lib/logger";
 import { BOOKING_NOT_FOUND_MESSAGE, NOT_ALLOWED_MESSAGE } from "../admin/access";
 import { AdminError, isOverlapError } from "../admin/errors";
 import { AccessDeniedError } from "../auth/access-core";
+import { AuthNotConfiguredError } from "../auth/config";
 import { PaymentError } from "../payments/stripe";
 import {
   BookingStateError,
@@ -129,6 +130,14 @@ export function errorResponse(error: unknown): Response {
   }
   if (error instanceof ValidationError) {
     return failure(422, { code: "invalid_request", message: error.message });
+  }
+  if (error instanceof AuthNotConfiguredError) {
+    // The environment is missing its sign-in settings. Say so: it is a setup step, not a bug.
+    log({ level: "error", msg: "sign-in is not configured", error: error.message });
+    return failure(503, {
+      code: "auth_not_configured",
+      message: "Sign-in is not set up on the server yet. Ask the owner to finish the Google setup.",
+    });
   }
   if (error instanceof PaymentError) return paymentErrorResponse(error);
   if (error instanceof AdminError) {

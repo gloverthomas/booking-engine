@@ -4,6 +4,14 @@ import type { AuthConfig } from "./auth";
 import { parseOwnerEmails } from "./owners";
 import { isActiveStaffEmail } from "./resolve-access";
 
+/** Sign-in cannot work until the environment is filled in. Distinct so the API can say so plainly (503). */
+export class AuthNotConfiguredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AuthNotConfiguredError";
+  }
+}
+
 const REQUIRED = [
   ["BETTER_AUTH_SECRET", "a random 32+ character secret (openssl rand -base64 32)"],
   ["APP_URL", "the public origin of this app, e.g. https://admin.example.com"],
@@ -20,16 +28,16 @@ export function readAuthConfig(env: Env, db: Db): AuthConfig {
   const missing = REQUIRED.filter(([key]) => !env[key]);
   if (missing.length > 0) {
     const list = missing.map(([key, hint]) => `${key} (${hint})`).join("; ");
-    throw new Error(`Admin sign-in is not configured. Set: ${list}`);
+    throw new AuthNotConfiguredError(`Admin sign-in is not configured. Set: ${list}`);
   }
   const secret = env.BETTER_AUTH_SECRET as string;
   if (secret.length < 32) {
-    throw new Error("BETTER_AUTH_SECRET must be at least 32 characters");
+    throw new AuthNotConfiguredError("BETTER_AUTH_SECRET must be at least 32 characters");
   }
   const baseURL = new URL(env.APP_URL as string).origin;
   const ownerEmails = parseOwnerEmails(env.OWNER_EMAILS);
   if (ownerEmails.size === 0) {
-    throw new Error("OWNER_EMAILS must list at least one email address");
+    throw new AuthNotConfiguredError("OWNER_EMAILS must list at least one email address");
   }
   return {
     db,

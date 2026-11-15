@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { describe, expect, test } from "vitest";
 import { ZodError, z } from "zod";
 import { AdminError } from "@/server/admin/errors";
+import { AuthNotConfiguredError } from "@/server/auth/config";
 import { AccessDeniedError } from "@/server/auth/access-core";
 import {
   BookingStateError,
@@ -54,6 +55,12 @@ describe("errorResponse", () => {
     ["a VIP-only service", new VipOnlyError("Colour"), 403, "not_allowed"],
     ["a validation error", new ValidationError("Bad"), 422, "invalid_request"],
     ["an AdminError", new AdminError("Not today"), 400, "rejected"],
+    [
+      "sign-in not set up",
+      new AuthNotConfiguredError("GOOGLE_CLIENT_ID missing"),
+      503,
+      "auth_not_configured",
+    ],
   ];
 
   test.each(cases)("%s", async (_name, error, status, code) => {
