@@ -1,5 +1,10 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { getAccount, patchSyncState } from "../common/account-store";
+import {
+  listAccounts,
+  patchSyncState,
+  type AccountRow,
+  type AccountStaffId,
+} from "../common/account-store";
 import { isHttps, requireAppUrl, requireEncryptionKey } from "../common/env";
 import { AuthRevokedError } from "../common/errors";
 import { claimOnce, markProcessed } from "../common/once";
@@ -38,9 +43,10 @@ export interface EnsureChannelResult {
  */
 export async function ensureWatchChannel(
   deps: GoogleDeps,
-  options: { force?: boolean } = {},
+  options: { force?: boolean; staffId?: AccountStaffId } = {},
 ): Promise<EnsureChannelResult> {
-  const rt = await loadGoogleRuntime(deps);
+  const staffId = options.staffId ?? null;
+  const rt = await loadGoogleRuntime(deps, staffId);
   if (!rt) return { action: "skipped" };
 
   const appUrl = requireAppUrl(deps.env);
@@ -83,15 +89,18 @@ export async function ensureWatchChannel(
     }
     return { action: existing ? "renewed" : "created" };
   } catch (error) {
-    await reportGoogleFailure(deps, error);
+    await reportGoogleFailure(deps, error, staffId);
     if (error instanceof AuthRevokedError) return { action: "skipped" };
     throw error;
   }
 }
 
-/** Stop the push channel (used on disconnect). Never throws. */
-export async function stopWatchChannel(deps: GoogleDeps): Promise<void> {
-  const rt = await loadGoogleRuntime(deps);
+/** Stop one account's push channel (used on disconnect). Never throws. */
+export async function stopWatchChannel(
+  deps: GoogleDeps,
+  staffId: AccountStaffId = null,
+): Promise<void> {
+  const rt = await loadGoogleRuntime(deps, staffId);
   const channel = rt ? parseSyncState(rt.account).channel : undefined;
   if (!rt || !channel) return;
   try {
@@ -106,8 +115,11 @@ export async function stopWatchChannel(deps: GoogleDeps): Promise<void> {
 /* -------------------------------------------------------------------------- */
 
 export interface WebhookDeps extends GoogleDeps {
-  /** Starts a sync without making Google wait for it (Next's `after`, or a queue send). */
-  kickSync: () => void;
+  /**
+   * Starts a sync of the account the push belongs to, without making Google wait for it
+   * (Next's `after`, or a queue send).
+   */
+  kickSync: (account: AccountRow) => void;
 }
 
 export interface WebhookHeaders {
@@ -141,9 +153,11 @@ export async function handleGoogleWebhook(
   if (!headers.channelId || !headers.channelToken || !headers.resourceState) {
     return { status: 400, result: "bad_request" };
   }
-  const account = await getAccount(deps.db, "google");
-  const channel = account ? parseSyncState(account).channel : undefined;
-  if (!account || account.status !== "connected" || !channel || channel.id !== headers.channelId) {
+  // Each account (business-wide or a stylist's) has its own channel id.
+  const account = (await listAccounts(deps.db, "google")).find(
+    (row) => parseSyncState(row).channel?.id === headers.channelId,
+  );
+  if (!account || account.status !== "connected") {
     return { status: 404, result: "unknown_channel" };
   }
   const key = requireEncryptionKey(deps.env);
@@ -155,7 +169,7 @@ export async function handleGoogleWebhook(
 
   const dedupeId = `${headers.channelId}:${headers.messageNumber ?? deps.now().getTime()}`;
   if (!(await claimOnce(deps.db, "google", dedupeId))) return { status: 200, result: "duplicate" };
-  deps.kickSync();
+  deps.kickSync(account);
   await markProcessed(deps.db, "google", dedupeId, deps.now());
   return { status: 200, result: "sync_started" };
 }

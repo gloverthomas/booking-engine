@@ -95,6 +95,23 @@ export interface OwnerAlertProps {
   comments: string | null;
 }
 
+export type StaffAlertKind = "new" | "moved" | "assigned" | "moved_away" | "cancelled";
+
+/** Email to the stylist about their own booking. No client contact details by design. */
+export interface StaffAlertProps {
+  businessName: string;
+  kind: StaffAlertKind;
+  staffFirstName: string;
+  clientFirstName: string;
+  dateLabel: string;
+  timeLabel: string;
+  /** Set for "moved": the time it used to be. */
+  previousWhen: string | null;
+  /** Service names only. */
+  services: string[];
+  locationName: string;
+}
+
 export interface OneOffMessageProps {
   businessName: string;
   subject: string;

@@ -8,7 +8,10 @@ import {
   notifyBookingMoved,
   sendBookingReminder,
 } from "./booking-notifications";
+import { notifyStaffOfBooking, type StaffAlertEvent } from "./staff-alerts";
+import type { LoggedSendResult } from "./message-log";
 import type { NotificationDeps } from "./types";
+import { notifyWaitlistOffer } from "./waitlist-notifications";
 
 export const REMINDER_QUEUE = "notifications.reminder";
 
@@ -35,10 +38,15 @@ const eventSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("booking.rescheduled"),
+    eventId: z.string().optional(),
     bookingId: z.uuid(),
     previousStart: z.string(),
     notifyClient: z.boolean(),
+    /** Not in the shared event type today; used when a producer supplies it. */
+    previousStaffId: z.uuid().optional(),
   }),
+  z.object({ type: z.literal("booking.expired"), bookingId: z.uuid() }),
+  z.object({ type: z.literal("waitlist.offer_created"), offerId: z.uuid() }),
   z.object({ type: z.literal("payment.succeeded"), paymentId: z.uuid() }),
   z.object({
     type: z.literal("booking.cancelled"),
@@ -53,6 +61,24 @@ export interface EventHandlerContext {
   db: Db;
   deps: NotificationDeps;
   scheduler: JobScheduler;
+  /** Injected in tests; defaults to W6's notifyWaitlistOffer. */
+  notifyWaitlistOffer?: typeof notifyWaitlistOffer;
+}
+
+/**
+ * Run every step even when one throws, then rethrow the first failure so the queue retries the
+ * event (every send is deduplicated, so the steps that worked do not repeat).
+ */
+async function settle(steps: Array<() => Promise<unknown>>): Promise<void> {
+  let failure: unknown;
+  for (const step of steps) {
+    try {
+      await step();
+    } catch (error: unknown) {
+      failure ??= error;
+    }
+  }
+  if (failure !== undefined) throw failure;
 }
 
 export type ReminderScheduleResult =
@@ -98,12 +124,17 @@ export async function handleNotificationEvent(
 
   switch (event.type) {
     case "booking.confirmed":
-      if (event.notifyClient === false) {
-        await notifyBookingConfirmed(db, event.bookingId, deps, { skipClient: true });
-        return;
-      }
-      await notifyBookingConfirmed(db, event.bookingId, deps);
-      await scheduleReminder(context, event.bookingId);
+      await settle([
+        async () => {
+          if (event.notifyClient === false) {
+            await notifyBookingConfirmed(db, event.bookingId, deps, { skipClient: true });
+            return;
+          }
+          await notifyBookingConfirmed(db, event.bookingId, deps);
+          await scheduleReminder(context, event.bookingId);
+        },
+        () => alertStylist(context, event.bookingId, { type: "confirmed" }),
+      ]);
       return;
     case "booking.rescheduled": {
       const previousStart = new Date(event.previousStart);
@@ -111,27 +142,56 @@ export async function handleNotificationEvent(
         deps.log({ event: "reschedule_event_bad_previous_start", bookingId: event.bookingId });
         return;
       }
-      await notifyBookingMoved(
-        db,
-        event.bookingId,
-        { previousStart, notifyClient: event.notifyClient },
-        deps,
-      );
-      await scheduleReminder(context, event.bookingId);
+      await settle([
+        async () => {
+          await notifyBookingMoved(
+            db,
+            event.bookingId,
+            { previousStart, notifyClient: event.notifyClient },
+            deps,
+          );
+          await scheduleReminder(context, event.bookingId);
+        },
+        () =>
+          alertStylist(context, event.bookingId, {
+            type: "rescheduled",
+            previousStart,
+            eventKey: event.eventId ?? event.previousStart,
+            previousStaffId: event.previousStaffId,
+          }),
+      ]);
       return;
     }
     case "payment.succeeded":
       await notifyFeeCharged(db, event.paymentId, deps);
       return;
     case "booking.cancelled":
-      await notifyBookingCancelled(
-        db,
-        event.bookingId,
-        { by: event.by, depositAction: event.depositAction, feeCents: event.feeCents },
-        deps,
-      );
+      await settle([
+        () =>
+          notifyBookingCancelled(
+            db,
+            event.bookingId,
+            { by: event.by, depositAction: event.depositAction, feeCents: event.feeCents },
+            deps,
+          ),
+        () => alertStylist(context, event.bookingId, { type: "cancelled" }),
+      ]);
+      return;
+    case "waitlist.offer_created":
+      await (context.notifyWaitlistOffer ?? notifyWaitlistOffer)(db, event.offerId, deps);
+      return;
+    case "booking.expired":
+      // An unpaid hold lapsed: nobody was told about it, so there is nothing to retract.
       return;
   }
+}
+
+function alertStylist(
+  { db, deps }: EventHandlerContext,
+  bookingId: string,
+  event: StaffAlertEvent,
+): Promise<LoggedSendResult[]> {
+  return notifyStaffOfBooking(db, bookingId, event, deps);
 }
 
 /** Handles one `notifications.reminder` job. Malformed jobs are dropped (retrying cannot fix them). */

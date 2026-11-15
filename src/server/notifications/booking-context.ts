@@ -26,6 +26,10 @@ export interface BookingContext {
   };
   location: { name: string; address: string; arrivalNote: string | null; phone: string | null };
   staffName: string;
+  staffId: string;
+  /** The stylist's own contact details, for staff alerts. Never shown to clients. */
+  staffEmail: string | null;
+  staffPhone: string | null;
   businessName: string;
   timezone: string;
   settings: BusinessSettings;
@@ -46,7 +50,14 @@ export async function loadBookingContext(
   bookingId: string,
 ): Promise<BookingContext | null> {
   const [row] = await db
-    .select({ booking, client, location, staffName: staff.name })
+    .select({
+      booking,
+      client,
+      location,
+      staffName: staff.name,
+      staffEmail: staff.email,
+      staffPhone: staff.phone,
+    })
     .from(booking)
     .innerJoin(client, eq(client.id, booking.clientId))
     .innerJoin(location, eq(location.id, booking.locationId))
@@ -109,6 +120,9 @@ export async function loadBookingContext(
       phone: row.location.phone,
     },
     staffName: row.staffName,
+    staffId: row.booking.staffId,
+    staffEmail: row.staffEmail,
+    staffPhone: row.staffPhone,
     businessName: biz?.name ?? row.staffName,
     timezone: biz?.timezone ?? DEFAULT_TIMEZONE,
     settings: parseSettings(biz?.settings),

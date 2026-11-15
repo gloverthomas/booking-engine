@@ -10,6 +10,8 @@ import {
 } from "@/server/integrations/google/routes";
 import type { GoogleAuthPort, GoogleTokens } from "@/server/integrations/google/port";
 import { deriveChannelToken, ensureWatchChannel } from "@/server/integrations/google/channel";
+import type { Permission } from "@/server/auth/permissions";
+import type { GoogleAccessSession } from "@/server/integrations/google/access";
 import { createTestDb } from "../../helpers/test-db";
 import { setupTestDb } from "../helpers";
 import {
@@ -37,7 +39,9 @@ describe("google routes", () => {
   let google: FakeGoogle;
   let authPort: GoogleAuthPort & { exchangeCode: ReturnType<typeof vi.fn> };
   let afterTasks: Array<() => Promise<void>>;
-  let requireOwner: ReturnType<typeof vi.fn<() => Promise<unknown>>>;
+  let requireAccess: ReturnType<
+    typeof vi.fn<(permission: Permission) => Promise<GoogleAccessSession>>
+  >;
   let deps: GoogleRouteDeps;
 
   beforeEach(async () => {
@@ -45,7 +49,10 @@ describe("google routes", () => {
     seed = await seedBooking(t.db);
     google = fakeGoogle();
     afterTasks = [];
-    requireOwner = vi.fn<() => Promise<unknown>>(async () => ({ userId: "u1" }));
+    requireAccess = vi.fn<(permission: Permission) => Promise<GoogleAccessSession>>(async () => ({
+      staffId: null,
+      role: "owner",
+    }));
     authPort = {
       buildAuthUrl: vi.fn(
         async ({ state, codeChallenge }) =>
@@ -63,7 +70,7 @@ describe("google routes", () => {
       now: fixedNow,
       log: silentLog,
       createPort: async () => google,
-      requireOwner,
+      requireAccess,
       authPort,
       runAfter: (task) => afterTasks.push(task),
     };
@@ -84,9 +91,9 @@ describe("google routes", () => {
       headers: cookie ? { cookie } : {},
     });
 
-  test("connect requires the owner and redirects to Google with state, PKCE and a secure cookie", async () => {
+  test("connect requires integrations.manage and redirects to Google with state, PKCE and a secure cookie", async () => {
     const { res, state } = await startConnect();
-    expect(requireOwner).toHaveBeenCalled();
+    expect(requireAccess).toHaveBeenCalledWith("integrations.manage");
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toContain("accounts.google.com");
     expect(res.headers.get("location")).toContain("cc=");
@@ -103,7 +110,7 @@ describe("google routes", () => {
   });
 
   test("connect propagates an owner-guard failure and rejects a bad calendarId", async () => {
-    requireOwner.mockRejectedValueOnce(new Error("not signed in"));
+    requireAccess.mockRejectedValueOnce(new Error("not signed in"));
     await expect(
       googleConnect(new Request("https://x.test/api/integrations/google/connect"), deps),
     ).rejects.toThrow("not signed in");

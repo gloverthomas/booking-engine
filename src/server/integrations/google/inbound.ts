@@ -1,7 +1,13 @@
 import { and, asc, eq, notInArray } from "drizzle-orm";
-import { staff, timeBlock } from "@/db/schema";
+import { integrationAccount, staff, timeBlock } from "@/db/schema";
 import type { Db } from "@/server/db-types";
-import { patchSyncState, recordSuccess } from "../common/account-store";
+import {
+  listAccounts,
+  patchSyncState,
+  recordSuccess,
+  type AccountRow,
+  type AccountStaffId,
+} from "../common/account-store";
 import { AuthRevokedError, ProviderGoneError } from "../common/errors";
 import { withAdvisoryLock } from "../common/locks";
 import { classifyEvent } from "./event-mapper";
@@ -21,9 +27,15 @@ export const DEFAULT_WINDOW_DAYS = 180;
 export const WINDOW_ROLL_DAYS = 30;
 const SYNC_LOCK = "integrations:google:sync";
 
+/** One lock per account, so two stylists' syncs run side by side but never the same one twice. */
+const syncLockName = (staffId: AccountStaffId): string =>
+  staffId === null ? SYNC_LOCK : `${SYNC_LOCK}:${staffId}`;
+
 export interface SyncOptions {
   forceFull?: boolean;
   windowDays?: number;
+  /** Which account to sync: a stylist's own, or (default, null) the business-wide one. */
+  staffId?: AccountStaffId;
 }
 
 export interface SyncResult {
@@ -32,8 +44,16 @@ export interface SyncResult {
   deleted: number;
 }
 
-/** The stylist whose availability Google busy time blocks: configured, else the first active one. */
-async function resolveStaffId(db: Db, configured: string | undefined): Promise<string | null> {
+/**
+ * The stylist whose availability Google busy time blocks. A stylist's own account always blocks
+ * that stylist. The business-wide account blocks the configured stylist, else the first active one.
+ */
+export async function resolveStaffId(
+  db: Db,
+  account: AccountRow,
+  configured: string | undefined,
+): Promise<string | null> {
+  if (account.staffId) return account.staffId;
   if (configured) return configured;
   const [row] = await db
     .select({ id: staff.id })
@@ -42,6 +62,26 @@ async function resolveStaffId(db: Db, configured: string | undefined): Promise<s
     .orderBy(asc(staff.createdAt))
     .limit(1);
   return row?.id ?? null;
+}
+
+/**
+ * True when this stylist has their own connected calendar. The business-wide account then stops
+ * importing for them: two accounts writing the same person's blocks would clobber each other on
+ * every full sync, and the personal calendar is the one they actually keep.
+ */
+export async function hasOwnConnectedCalendar(db: Db, staffId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: integrationAccount.id })
+    .from(integrationAccount)
+    .where(
+      and(
+        eq(integrationAccount.provider, "google"),
+        eq(integrationAccount.staffId, staffId),
+        eq(integrationAccount.status, "connected"),
+      ),
+    )
+    .limit(1);
+  return Boolean(row);
 }
 
 interface Counters {
@@ -159,15 +199,21 @@ export async function syncGoogleCalendar(
   deps: GoogleDeps,
   options: SyncOptions = {},
 ): Promise<SyncResult> {
-  const rt = await loadGoogleRuntime(deps);
+  const accountStaffId = options.staffId ?? null;
+  const rt = await loadGoogleRuntime(deps, accountStaffId);
   if (!rt) return { mode: "skipped", upserted: 0, deleted: 0 };
 
   try {
-    const outcome = await withAdvisoryLock(deps.db, SYNC_LOCK, { wait: false }, async (tx) => {
+    const lock = syncLockName(accountStaffId);
+    const outcome = await withAdvisoryLock(deps.db, lock, { wait: false }, async (tx) => {
       const state = parseSyncState(rt.account);
-      const staffId = await resolveStaffId(tx, state.staffId);
+      const staffId = await resolveStaffId(tx, rt.account, state.staffId);
       if (!staffId) {
         deps.log({ event: "google_sync_skipped", reason: "no_active_staff" });
+        return { mode: "skipped", upserted: 0, deleted: 0 } satisfies SyncResult;
+      }
+      if (accountStaffId === null && (await hasOwnConnectedCalendar(tx, staffId))) {
+        deps.log({ event: "google_sync_skipped", reason: "staff_has_own_calendar", staffId });
         return { mode: "skipped", upserted: 0, deleted: 0 } satisfies SyncResult;
       }
 
@@ -213,12 +259,35 @@ export async function syncGoogleCalendar(
     });
 
     if (!outcome.acquired) return { mode: "busy", upserted: 0, deleted: 0 };
-    await recordSuccess(deps.db, "google", deps.now());
-    deps.log({ event: "google_sync_done", ...outcome.value });
+    await recordSuccess(deps.db, "google", deps.now(), accountStaffId);
+    deps.log({ event: "google_sync_done", staffId: accountStaffId, ...outcome.value });
     return outcome.value;
   } catch (error) {
-    await reportGoogleFailure(deps, error);
+    await reportGoogleFailure(deps, error, accountStaffId);
     if (error instanceof AuthRevokedError) return { mode: "skipped", upserted: 0, deleted: 0 };
     throw error;
   }
+}
+
+/**
+ * Sync every connected Google account (the business-wide one and each stylist's). One account
+ * failing never stops the others; the first failure is rethrown afterwards so the job retries.
+ */
+export async function syncAllGoogleAccounts(
+  deps: GoogleDeps,
+  options: Omit<SyncOptions, "staffId"> = {},
+): Promise<Array<{ staffId: AccountStaffId; result: SyncResult }>> {
+  const outcomes: Array<{ staffId: AccountStaffId; result: SyncResult }> = [];
+  let failure: unknown;
+  for (const account of await listAccounts(deps.db, "google")) {
+    if (account.status !== "connected") continue;
+    try {
+      const result = await syncGoogleCalendar(deps, { ...options, staffId: account.staffId });
+      outcomes.push({ staffId: account.staffId, result });
+    } catch (error) {
+      failure ??= error;
+    }
+  }
+  if (failure) throw failure;
+  return outcomes;
 }
