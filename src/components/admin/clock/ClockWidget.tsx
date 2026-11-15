@@ -9,6 +9,17 @@ import { formatDuration } from "@/server/timesheets/duration";
 type Loaded = Extract<ClockPayload, { available: true }>;
 const TICK_MS = 30_000;
 
+/** Null when the person has no clock (not signed in, no permission, no staff profile) or the request failed. */
+async function fetchClockState(): Promise<ClockPayload | null> {
+  try {
+    const res = await fetch("/timesheets/clock", { cache: "no-store" });
+    if (!res.ok || !res.headers.get("content-type")?.includes("json")) return null;
+    return (await res.json()) as ClockPayload;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * A small "Clock in / Clock out" control for the admin shell, shown to anyone with timesheets.clock. It loads its
  * own state, so it needs no props. Clocked out: "Clock in" (with a location picker when there is more than one
@@ -27,35 +38,33 @@ export function ClockWidget() {
   const [announce, setAnnounce] = useState("");
   const ids = { loc: useId(), brk: useId() };
 
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch("/timesheets/clock", { cache: "no-store" });
-      if (!res.ok || !res.headers.get("content-type")?.includes("json")) {
-        setHidden(true);
-        return;
-      }
-      const data = (await res.json()) as ClockPayload;
-      if (!data.available) {
-        setHidden(true);
-        return;
-      }
-      setOffsetMs(new Date(data.serverNow).getTime() - Date.now());
-      setState(data);
-      setLocationId((current) =>
-        data.locations.some((l) => l.id === current)
-          ? current
-          : data.locations.length === 1
-            ? data.locations[0].id
-            : "",
-      );
-    } catch {
+  const apply = useCallback((data: ClockPayload | null) => {
+    if (!data || !data.available) {
       setHidden(true);
+      return;
     }
+    setOffsetMs(new Date(data.serverNow).getTime() - Date.now());
+    setState(data);
+    setLocationId((current) =>
+      data.locations.some((l) => l.id === current)
+        ? current
+        : data.locations.length === 1
+          ? data.locations[0].id
+          : "",
+    );
   }, []);
 
+  const load = useCallback(async () => apply(await fetchClockState()), [apply]);
+
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    void fetchClockState().then((data) => {
+      if (!cancelled) apply(data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [apply]);
 
   const clockedIn = state?.open != null;
   useEffect(() => {
