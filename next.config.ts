@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs/config";
+import { mcpHostRewrites } from "./src/lib/mcp-host";
 import { publicFrameHeaders } from "./src/lib/public-api-frame";
 
 /** Admin screens must never be framed. */
@@ -38,6 +39,10 @@ const nextConfig: NextConfig = {
   async redirects() {
     // The public site embeds /book; the bare domain just goes there.
     return [{ source: "/", destination: "/book", permanent: false }];
+  },
+  async rewrites() {
+    // mcp.hairmate.world/mcp is the same endpoint as /api/mcp; that host serves nothing else.
+    return { beforeFiles: mcpHostRewrites() };
   },
   async headers() {
     return [
