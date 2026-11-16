@@ -1,6 +1,5 @@
 import {
   ClaudeSection,
-  ComingNext,
   ContactCta,
   Facts,
   Features,
@@ -17,7 +16,6 @@ export default function Home() {
       <HowItWorks />
       <Integrations />
       <ClaudeSection />
-      <ComingNext />
       <Facts />
       <ContactCta />
     </>

@@ -12,7 +12,7 @@ export default function MessagingPage() {
     >
       <h2>Who sends them</h2>
       <p>
-        Messages are sent on behalf of Ryan Kennedy Hairdressing by <Operator />, using the HairMate
+        Messages are sent on behalf of the salon you booked with by <Operator />, using the HairMate
         booking system. Text messages show the salon&apos;s name or a mobile number as the sender.
       </p>
 

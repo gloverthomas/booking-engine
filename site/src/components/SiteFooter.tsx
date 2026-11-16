@@ -12,7 +12,7 @@ export function SiteFooter() {
               Hair<span>Mate</span>
             </p>
             <p style={{ maxWidth: "26rem", margin: 0 }}>
-              The booking system built for Ryan Kennedy Hairdressing, Melbourne.
+              Booking software for hair salons. Book, remind, get paid.
             </p>
           </div>
           <div>
@@ -28,11 +28,8 @@ export function SiteFooter() {
                 <Link href="/contact">Contact</Link>
               </li>
               <li>
-                <a href={`${SITE.appUrl}/book`}>Book an appointment</a>
-              </li>
-              <li>
                 <a href={`${SITE.appUrl}/login`} rel="nofollow">
-                  Staff sign in
+                  Sign in
                 </a>
               </li>
             </ul>

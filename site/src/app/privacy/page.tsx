@@ -13,7 +13,7 @@ export default function PrivacyPage() {
     >
       <h2>Who we are</h2>
       <p>
-        HairMate is the booking system used by Ryan Kennedy Hairdressing. It is operated by{" "}
+        HairMate is online booking software for hair salons. This policy covers this website and the booking pages. It is operated by{" "}
         <Operator />
         {entity.address !== "to be confirmed" ? `, ${entity.address}` : ""} (&ldquo;we&rdquo;). We
         follow the Australian Privacy Principles. Questions or requests:{" "}
@@ -24,7 +24,7 @@ export default function PrivacyPage() {
       <ul>
         <li>
           <strong>When you book:</strong> your name, email address and mobile number; optionally
-          your pronouns, another phone number, a company name and comments; the services, time and
+          comments you choose to add; the services, time and
           location you chose; answers to any service questions; whether you ticked the marketing
           box; and when you accepted the cancellation policy and which version.
         </li>

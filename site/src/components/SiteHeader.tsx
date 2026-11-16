@@ -19,7 +19,7 @@ export function SiteHeader() {
             Ask Claude
           </Link>
           <a href={`${SITE.appUrl}/login`} className="nav__hide" rel="nofollow">
-            Staff sign in
+            Sign in
           </a>
           <Link href="/contact" className="btn btn--ink">
             Contact

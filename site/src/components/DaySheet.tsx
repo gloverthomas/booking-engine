@@ -29,7 +29,7 @@ export function DaySheet() {
     >
       <div className="sheet__head" aria-hidden="true">
         <span>Sat 21 Nov</span>
-        <span>Northside</span>
+        <span>Main salon</span>
       </div>
       <div className="sheet__body" aria-hidden="true">
         <div className="sheet__times">

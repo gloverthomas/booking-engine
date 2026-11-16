@@ -28,16 +28,16 @@ const configured = entityConfigured(readEntity());
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
-    default: "HairMate: the booking system for Ryan Kennedy Hairdressing",
+    default: "HairMate: booking software for hair salons",
     template: "%s · HairMate",
   },
   description:
-    "Online booking, deposits, SMS reminders, a calendar that syncs with Google and invoices that land in Xero. Built for Ryan Kennedy Hairdressing, Melbourne.",
+    "Online booking, deposits up front, reminders that cut no-shows, a calendar that syncs with Google and invoices that land in Xero. Booking software for hair salons.",
   // Stay out of search results until the legal entity details are filled in.
   robots: configured ? { index: true, follow: true } : { index: false, follow: false },
   openGraph: {
     title: "HairMate",
-    description: "Book. Remind. Get paid. The booking system for Ryan Kennedy Hairdressing.",
+    description: "Book. Remind. Get paid. Booking software for hair salons.",
     url: SITE.url,
     siteName: "HairMate",
     type: "website",

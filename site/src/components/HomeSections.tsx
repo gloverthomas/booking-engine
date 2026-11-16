@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { DaySheet } from "./DaySheet";
-import { SITE } from "@/lib/entity";
 
 export function Hero() {
   return (
     <section className="hero" aria-labelledby="hero-title">
       <div className="wrap hero__grid">
         <div>
-          <p className="eyebrow">Booking software · Ryan Kennedy Hairdressing</p>
+          <p className="eyebrow">Booking software for hair salons</p>
           <h1 id="hero-title" className="display">
             Book.
             <br />
@@ -16,14 +15,14 @@ export function Hero() {
             Get <span className="stamp">paid.</span>
           </h1>
           <p className="lede">
-            HairMate is the booking system built for Ryan Kennedy Hairdressing: online booking,
-            deposits taken up front, SMS reminders, a calendar that syncs with Google, and invoices
-            that land in Xero.
+            Clients book themselves, pay a deposit up front and get reminded the day before, so your
+            chair stays full and your phone stays quiet. Your calendar, your payments and your
+            accounts keep up on their own.
           </p>
           <div className="hero__cta">
-            <a className="btn btn--ink" href={`${SITE.appUrl}/book`}>
-              Book an appointment
-            </a>
+            <Link className="btn btn--ink" href="/contact">
+              Talk to us
+            </Link>
             <Link className="btn btn--ghost" href="#features">
               See what it does
             </Link>
@@ -35,46 +34,46 @@ export function Hero() {
   );
 }
 
-const FEATURES: Array<{ title: string; body: string; status: "built" | "next" }> = [
+const FEATURES: Array<{ title: string; body: string }> = [
   {
-    title: "Online booking, 24/7",
-    body: "Clients pick a location, services and a time on a page that matches the salon's site. It embeds on any website.",
-    status: "built",
+    title: "Fill the chair around the clock",
+    body: "Clients choose a service, a stylist and a time whenever it suits them, on a page that matches your website and embeds anywhere. Fewer calls and DMs, more full days.",
   },
   {
-    title: "Deposits at booking",
-    body: "A deposit (50% by default) is taken by card or Apple Pay through Stripe, and the card is saved for fees. The slot is held for ten minutes while they pay.",
-    status: "built",
+    title: "Get paid before they arrive",
+    body: "A deposit (50% by default) is taken by card or Apple Pay when they book, and the card is saved in case a fee applies. The slot is held for ten minutes while they pay.",
   },
   {
-    title: "Cancellation rules that apply themselves",
-    body: "Changes outside the window are free. Inside it, the deposit is kept, with an optional extra fee for a no-show charged to the saved card.",
-    status: "built",
+    title: "No-shows stop costing you",
+    body: "Your cancellation rules apply themselves. Changes inside the window keep the deposit, and an optional no-show fee is charged to the saved card. No awkward conversations.",
   },
   {
-    title: "SMS and email reminders",
-    body: "A confirmation with a calendar file, and a reminder the day before. The reminder checks the booking is still on before it sends.",
-    status: "built",
+    title: "Clients who actually turn up",
+    body: "A confirmation with a calendar file, then an SMS or email reminder the day before. The reminder checks the booking is still on before it sends.",
   },
   {
-    title: "A calendar that lives on your phone",
-    body: "Day, three-day and week views. Drag a booking to move it. Install it to the home screen and it opens like an app.",
-    status: "built",
+    title: "One calendar for the whole team",
+    body: "Each stylist has their own column, roster and timesheet. Owners see everything; stylists see their own day. Drag a booking to move it, from any phone.",
   },
   {
-    title: "Google Calendar, both ways",
-    body: "Bookings appear in your own calendar, and personal events block the times they cover, so nobody books over the dentist.",
-    status: "built",
+    title: "Never double-booked",
+    body: "Syncs both ways with Google Calendar. Bookings appear in your own calendar, and personal events block the times they cover.",
   },
   {
-    title: "Xero, automatically",
-    body: "Each booking creates the contact, the invoice and the payments in Xero, with the PDF emailed to the client.",
-    status: "built",
+    title: "Fill the gaps",
+    body: "When a day is full, clients join a waitlist. When a time opens up, offer it to someone who wants it in a tap.",
   },
   {
-    title: "Clients, notes and reports",
-    body: "History, notes, VIP and blocked flags, duplicate merging. Revenue, utilisation, cancellations and rebooking, with CSV export.",
-    status: "built",
+    title: "The books look after themselves",
+    body: "Each booking creates the contact, the invoice and the payments in Xero, with the PDF emailed to the client. Nothing to retype at month end.",
+  },
+  {
+    title: "Know your numbers",
+    body: "Client history and notes, VIP and blocked flags, duplicate merging. Revenue, utilisation, cancellations and rebooking, with CSV export.",
+  },
+  {
+    title: "Switch without starting over",
+    body: "Bring your clients and booked appointments across from a spreadsheet export. You see a dry run first, and nobody is messaged about appointments they already have.",
   },
 ];
 
@@ -83,11 +82,13 @@ export function Features() {
     <section id="features" className="section" aria-labelledby="features-title">
       <div className="wrap split">
         <div className="split__sticky">
-          <p className="eyebrow">What it does</p>
+          <p className="eyebrow">What it does for you</p>
           <h2 id="features-title" className="display h2">
             Everything the chair needs.
           </h2>
-          <p className="lede">Built from how a working hairdresser actually runs a day.</p>
+          <p className="lede">
+            Less time on admin, fewer gaps in the day and money in the bank before the appointment.
+          </p>
         </div>
         <ol className="ledger">
           {FEATURES.map((f, i) => (
@@ -97,9 +98,6 @@ export function Features() {
                 <h3>{f.title}</h3>
                 <p>{f.body}</p>
               </div>
-              <span className={`tag tag--${f.status}`}>
-                {f.status === "built" ? "Built" : "Next"}
-              </span>
             </li>
           ))}
         </ol>
@@ -178,39 +176,14 @@ export function ClaudeSection() {
             Ask Claude.
           </h2>
           <p className="lede">
-            Connect HairMate to Claude and manage the salon in plain English. Reads are instant.
-            Every change shows a preview and waits for a yes. Refunds and fee charges are switched
-            off unless you turn them on.
+            Connect HairMate to Claude and run the salon in plain English, between clients and
+            without opening a screen. Looking things up is instant. Every change shows a preview and
+            waits for your yes. Refunds and fee charges are switched off unless you turn them on.
           </p>
         </div>
         <ul className="prompts" aria-label="Examples of what you can ask">
           {PROMPTS.map((p) => (
             <li key={p}>{p}</li>
-          ))}
-        </ul>
-      </div>
-    </section>
-  );
-}
-
-const NEXT = [
-  "Tap to Pay on iPhone",
-  "More than one stylist: rosters and timesheets",
-  "Waitlist for cancellations",
-  "Packages and gift vouchers",
-];
-
-export function ComingNext() {
-  return (
-    <section className="section" aria-labelledby="next-title">
-      <div className="wrap">
-        <p className="eyebrow">Not yet, and we&apos;ll say so</p>
-        <h2 id="next-title" className="display h2">
-          Coming next.
-        </h2>
-        <ul className="next">
-          {NEXT.map((n) => (
-            <li key={n}>{n}</li>
           ))}
         </ul>
       </div>
@@ -259,18 +232,20 @@ export function ContactCta() {
   return (
     <section className="section section--ink" aria-labelledby="cta-title">
       <div className="wrap">
-        <p className="eyebrow">Say hello</p>
+        <p className="eyebrow">Get started</p>
         <h2 id="cta-title" className="display h2">
-          Questions? Privacy request?
+          Want HairMate for your salon?
         </h2>
-        <p className="lede">Write to us and a person will reply.</p>
+        <p className="lede">
+          Tell us about your salon and we will show you around. A person will reply.
+        </p>
         <div className="hero__cta">
           <Link
             className="btn btn--ink"
             href="/contact"
             style={{ background: "var(--paper)", color: "var(--ink)", borderColor: "var(--paper)" }}
           >
-            Contact us
+            Get in touch
           </Link>
         </div>
       </div>

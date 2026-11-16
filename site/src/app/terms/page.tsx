@@ -21,7 +21,7 @@ export default function TermsPage() {
         <li>Give accurate details so we can contact you about your appointment.</li>
         <li>You must be 18 or older, or book for a child as their parent or guardian.</li>
         <li>
-          Your booking is an agreement between you and Ryan Kennedy Hairdressing for the services
+          Your booking is an agreement between you and the salon you book with for the services
           you chose, at the price shown.
         </li>
         <li>
