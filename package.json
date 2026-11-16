@@ -20,6 +20,9 @@
     "openapi": "tsx scripts/openapi.ts"
   },
   "dependencies": {
+    "@better-auth/cimd": "1.7.25",
+    "@better-auth/mcp": "1.7.25",
+    "@better-auth/oauth-provider": "1.7.25",
     "@fullcalendar/core": "^6.1.22",
     "@fullcalendar/daygrid": "^6.1.22",
     "@fullcalendar/interaction": "^6.1.22",
@@ -31,7 +34,7 @@
     "@sentry/node": "^11.12.0",
     "@stripe/react-stripe-js": "^7.1.0",
     "@stripe/stripe-js": "^10.3.0",
-    "better-auth": "^1.7.23",
+    "better-auth": "^1.7.25",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.4",
     "googleapis": "^190.0.0",

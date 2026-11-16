@@ -47,6 +47,10 @@ const envSchema = z.object({
   PUBLIC_EMBED_ORIGINS: z.string().optional(),
   PUBLIC_TRUSTED_PROXY_HOPS: z.string().optional(),
   /** MCP server (see src/server/mcp). Prefer the hash; generate with `openssl rand -hex 32`. */
+  /** Canonical MCP URL, e.g. https://mcp.hairmate.world/mcp. Setting it turns on OAuth sign-in for the MCP. */
+  MCP_PUBLIC_URL: z.string().url().optional(),
+  /** Comma-separated hostnames allowed to identify an MCP OAuth client. Defaults to Claude's. */
+  MCP_OAUTH_CLIENT_HOSTS: z.string().optional(),
   MCP_API_TOKEN_HASH: z.string().optional(),
   MCP_API_TOKEN: z.string().optional(),
   MCP_OWNER_ID: z.string().optional(),

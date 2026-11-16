@@ -20,7 +20,7 @@ export interface McpRouteOptions {
    * For OAuth: URL of the protected-resource metadata document, advertised in WWW-Authenticate so MCP clients
    * can discover the authorization server. Unused by the bearer-token authenticator.
    */
-  resourceMetadataUrl?: string;
+  resourceMetadataUrl?: string | (() => string | undefined);
 }
 
 function jsonError(
@@ -46,10 +46,15 @@ function clientAddress(request: Request): string {
  * token without changes here.
  */
 export function createMcpRouteHandlers(options: McpRouteOptions) {
-  const challenge = (): string =>
-    options.resourceMetadataUrl
-      ? `Bearer realm="booking-engine-mcp", resource_metadata="${options.resourceMetadataUrl}"`
+  const challenge = (): string => {
+    const metadataUrl =
+      typeof options.resourceMetadataUrl === "function"
+        ? options.resourceMetadataUrl()
+        : options.resourceMetadataUrl;
+    return metadataUrl
+      ? `Bearer realm="booking-engine-mcp", resource_metadata="${metadataUrl}"`
       : 'Bearer realm="booking-engine-mcp"';
+  };
 
   async function POST(request: Request): Promise<Response> {
     const authenticator = options.getAuthenticator();

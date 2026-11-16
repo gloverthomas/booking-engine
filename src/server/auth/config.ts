@@ -3,6 +3,7 @@ import type { Db } from "@/server/db-types";
 import type { AuthConfig } from "./auth";
 import { parseOwnerEmails } from "./owners";
 import { isActiveStaffEmail } from "./resolve-access";
+import { readMcpOAuthConfig } from "./mcp-oauth-config";
 
 /** Sign-in cannot work until the environment is filled in. Distinct so the API can say so plainly (503). */
 export class AuthNotConfiguredError extends Error {
@@ -54,5 +55,6 @@ export function readAuthConfig(env: Env, db: Db): AuthConfig {
     ownerEmails: () => parseOwnerEmails(env.OWNER_EMAILS),
     isStaffEmail: (email) => isActiveStaffEmail(db, email),
     secureCookies: env.NODE_ENV === "production" || baseURL.startsWith("https://"),
+    mcpOAuth: readMcpOAuthConfig(env),
   };
 }

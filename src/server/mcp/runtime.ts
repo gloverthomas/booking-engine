@@ -2,6 +2,8 @@ import { getDb } from "@/db/client";
 import { getEnv } from "@/lib/env";
 import { systemClock } from "../clock";
 import { bearerAuthenticatorFromEnv, type McpAuthenticator } from "./auth";
+import { firstAuthenticator } from "./oauth";
+import { mcpOAuthEndpoints, oauthAuthenticatorFromEnv } from "./oauth-runtime";
 import { loadMcpConfig } from "./config";
 import { realServices, type McpDeps } from "./deps";
 import { McpToolError } from "./errors";
@@ -14,7 +16,20 @@ export interface DefaultHandlerOptions {
    * Defaults to MCP_API_TOKEN_HASH / MCP_API_TOKEN from the environment.
    */
   getAuthenticator?: () => McpAuthenticator | null;
-  resourceMetadataUrl?: string;
+  resourceMetadataUrl?: string | (() => string | undefined);
+}
+
+/**
+ * OAuth access tokens (when MCP_PUBLIC_URL is set) first, then the static bearer token (when
+ * MCP_API_TOKEN_HASH is set). Neither configured = null, and the route answers 503 instead of letting anyone in.
+ */
+let authenticator: McpAuthenticator | null | undefined;
+function defaultAuthenticator(): McpAuthenticator | null {
+  authenticator ??= firstAuthenticator(
+    oauthAuthenticatorFromEnv(getEnv(), getDb()),
+    bearerAuthenticatorFromEnv(),
+  );
+  return authenticator;
 }
 
 /** Wire the route to the real database, real domain functions and the environment. */
@@ -39,8 +54,9 @@ export function createDefaultMcpHandlers(options: DefaultHandlerOptions = {}) {
   const failed = () => (limiters.failed ??= createRateLimiter({ limit: 10, windowMs: 60_000 }));
 
   return createMcpRouteHandlers({
-    getAuthenticator: options.getAuthenticator ?? (() => bearerAuthenticatorFromEnv()),
-    resourceMetadataUrl: options.resourceMetadataUrl,
+    getAuthenticator: options.getAuthenticator ?? defaultAuthenticator,
+    // Read per request, never at import, so building the app needs no environment.
+    resourceMetadataUrl: options.resourceMetadataUrl ?? (() => mcpOAuthEndpoints(getEnv())?.metadataUrl),
     requestLimiter: { check: (key) => requests().check(key) },
     failedAuthLimiter: { check: (key) => failed().check(key) },
     getDeps: (): McpDeps => ({

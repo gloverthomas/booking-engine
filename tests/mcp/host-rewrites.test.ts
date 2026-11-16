@@ -27,6 +27,8 @@ describe("mcpHostRewrites", () => {
     expect(catchAll.test("/mcp")).toBe(false);
     expect(catchAll.test("/api/mcp")).toBe(false);
     expect(catchAll.test("/mcp-host-only")).toBe(false);
+    expect(catchAll.test("/.well-known/oauth-protected-resource/mcp")).toBe(false);
+    expect(catchAll.test("/.well-known/oauth-authorization-server/api/auth")).toBe(true);
   });
 
   it("uses the production MCP hostname", () => {

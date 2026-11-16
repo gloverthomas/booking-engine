@@ -6,6 +6,7 @@ import { publicFrameHeaders } from "./src/lib/public-api-frame";
 /** Admin screens must never be framed. */
 const ADMIN_PATHS = [
   "/login",
+  "/consent",
   "/calendar/:path*",
   "/bookings/:path*",
   "/clients/:path*",

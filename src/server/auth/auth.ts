@@ -1,7 +1,10 @@
+import { cimd } from "@better-auth/cimd";
+import { fetchClientMetadataResource } from "@better-auth/cimd/node";
+import { mcp } from "@better-auth/mcp";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
-import { bearer } from "better-auth/plugins";
+import { bearer, jwt } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import * as authSchema from "@/db/auth-schema";
 import type { Db } from "@/server/db-types";
@@ -22,7 +25,27 @@ export interface AuthConfig {
   /** True for an email that belongs to an active staff member. Read on every sign-in too. Omitted = owners only. */
   isStaffEmail?: (email: string) => Promise<boolean>;
   secureCookies: boolean;
+  /**
+   * Lets Claude (and other MCP clients) sign in to the MCP server with OAuth 2.1. Omitted = the MCP only
+   * accepts the static bearer token, and no OAuth endpoints exist.
+   */
+  mcpOAuth?: McpOAuthConfig;
 }
+
+export interface McpOAuthConfig {
+  /** Canonical URL of the MCP endpoint, e.g. https://mcp.hairmate.world/mcp. Tokens are bound to it. */
+  resource: string;
+  /** Hostnames whose published client metadata may identify a client (e.g. claude.ai). Anything else is refused. */
+  clientHosts: readonly string[];
+  /** Called with the refused client_id URL, so a wrong allow-list is diagnosable from the logs. */
+  onClientRefused?: (clientIdUrl: string) => void;
+}
+
+/** The one scope an MCP client is granted; the MCP route requires it on every token. */
+export const MCP_SCOPE = "mcp";
+/** Short on purpose: access tokens cannot be revoked, only expire. Refresh tokens carry the session. */
+export const MCP_ACCESS_TOKEN_SECONDS = 15 * 60;
+const MCP_REFRESH_TOKEN_SECONDS = 30 * 24 * 60 * 60;
 
 /**
  * Better Auth with Google as the only way in, gated by the allow-list: OWNER_EMAILS plus active staff.
@@ -103,8 +126,55 @@ export function createAuth(config: AuthConfig) {
     rateLimit: { enabled: true, window: 60, max: 30 },
     // bearer(): the iPhone app sends `Authorization: Bearer <token>` instead of a cookie. Same sessions, same
     // allow-list, same revocation. nextCookies() must stay last.
-    plugins: [bearer(), nextCookies()],
+    plugins: [bearer(), ...mcpPlugins(config.mcpOAuth), nextCookies()],
+    // jwt() would otherwise let any signed-in session mint a JWT at /token; only the OAuth flow issues tokens.
+    ...(config.mcpOAuth ? { disabledPaths: ["/token"] } : {}),
   });
+}
+
+/**
+ * OAuth 2.1 for the MCP server: Better Auth is the authorization server (the owner signs in with Google and
+ * approves the connection on /consent), Claude identifies itself with a published metadata document (CIMD),
+ * and tokens are short-lived JWTs bound to the MCP URL. No open client registration.
+ */
+function mcpPlugins(oauth: McpOAuthConfig | undefined) {
+  if (!oauth) return [];
+  const allowedHosts = new Set(oauth.clientHosts.map((h) => h.toLowerCase()));
+  return [
+    jwt({ disableSettingJwtHeader: true }),
+    mcp({
+      loginPage: "/login",
+      consentPage: "/consent",
+      resource: oauth.resource,
+      scopes: [MCP_SCOPE, "offline_access"],
+      accessTokenExpiresIn: MCP_ACCESS_TOKEN_SECONDS,
+      refreshTokenExpiresIn: MCP_REFRESH_TOKEN_SECONDS,
+    }),
+    cimd({
+      fetchClientMetadataResource,
+      metadataProfile: "mcp-2026-07-28",
+      isMetadataDocumentUrlAllowed: (clientIdUrl) => {
+        const allowed = isAllowedClientUrl(clientIdUrl, allowedHosts);
+        if (!allowed) oauth.onClientRefused?.(clientIdUrl);
+        return allowed;
+      },
+    }),
+  ];
+}
+
+/** True for an https URL on one of the allowed hosts (exact match, no subdomains, no credentials). */
+export function isAllowedClientUrl(raw: string, allowedHosts: ReadonlySet<string>): boolean {
+  try {
+    const url = new URL(raw);
+    return (
+      url.protocol === "https:" &&
+      url.username === "" &&
+      url.password === "" &&
+      allowedHosts.has(url.hostname.toLowerCase())
+    );
+  } catch {
+    return false;
+  }
 }
 
 export type Auth = ReturnType<typeof createAuth>;

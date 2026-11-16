@@ -4,6 +4,7 @@ import { GoogleSignInButton } from "@/components/admin/shell/google-sign-in-butt
 import { ADMIN_HOME } from "@/components/admin/shell/nav-config";
 import { Alert } from "@/components/ui/alert";
 import { getAccessSession } from "@/server/auth";
+import { signedOAuthQuery } from "@/server/auth/oauth-query";
 import { loginErrorMessage } from "@/server/auth/owners";
 import { signInWithGoogleAction } from "./actions";
 
@@ -48,10 +49,12 @@ async function SignInPanel({ searchParams }: { searchParams: SearchParams }) {
   const [params, session] = await Promise.all([searchParams, getAccessSession()]);
   if (session) redirect(ADMIN_HOME);
   const message = loginErrorMessage(first(params.error));
+  const oauthQuery = signedOAuthQuery(params);
   return (
     <>
       {message ? <Alert tone="danger">{message}</Alert> : null}
       <form action={signInWithGoogleAction}>
+        {oauthQuery ? <input type="hidden" name="oauth_query" value={oauthQuery} /> : null}
         <GoogleSignInButton />
       </form>
     </>
