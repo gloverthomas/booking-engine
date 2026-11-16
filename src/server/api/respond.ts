@@ -2,11 +2,13 @@ import { unstable_rethrow } from "next/navigation";
 import { ZodError } from "zod";
 import { createLogger } from "@/lib/logger";
 import { BOOKING_NOT_FOUND_MESSAGE, NOT_ALLOWED_MESSAGE } from "../admin/access";
+import { AdminError as FoundationAdminError } from "../admin-foundation/errors";
 import { AdminError, isOverlapError } from "../admin/errors";
 import { AccessDeniedError } from "../auth/access-core";
 import { AuthNotConfiguredError } from "../auth/config";
 import { PaymentError } from "../payments/stripe";
 import { TimesheetError } from "../timesheets/errors";
+import { OfferGoneError, WaitlistDisabledError } from "../waitlist/errors";
 import {
   BookingStateError,
   ClientBlockedError,
@@ -63,6 +65,19 @@ function fieldsOf(error: ZodError): Record<string, string> {
     if (!(key in fields)) fields[key] = issue.message;
   }
   return fields;
+}
+
+function foundationErrorResponse(error: FoundationAdminError): Response {
+  if (Object.keys(error.fieldErrors).length > 0) {
+    return failure(422, {
+      code: "invalid_request",
+      message: error.message,
+      fields: { ...error.fieldErrors },
+    });
+  }
+  if (error.code === "not_found")
+    return failure(404, { code: "not_found", message: error.message });
+  return failure(400, { code: "rejected", message: error.message });
 }
 
 function timesheetErrorResponse(error: TimesheetError): Response {
@@ -157,6 +172,13 @@ export function errorResponse(error: unknown): Response {
       message: "Sign-in is not set up on the server yet. Ask the owner to finish the Google setup.",
     });
   }
+  if (error instanceof WaitlistDisabledError) {
+    return failure(409, { code: "waitlist_disabled", message: error.message });
+  }
+  if (error instanceof OfferGoneError) {
+    return failure(409, { code: "offer_gone", message: error.message });
+  }
+  if (error instanceof FoundationAdminError) return foundationErrorResponse(error);
   if (error instanceof PaymentError) return paymentErrorResponse(error);
   if (error instanceof TimesheetError) return timesheetErrorResponse(error);
   if (error instanceof AdminError) {

@@ -4,6 +4,11 @@ For the iPhone app (see `docs/MOBILE.md`). It is a thin REST layer over the same
 web admin uses, so permissions, audit and rules are identical. Customer-facing endpoints stay under
 `/api/public`.
 
+> **Machine-readable contract:** [`docs/openapi.json`](./openapi.json) (OpenAPI 3.1), generated from
+> `src/server/api/openapi.ts` and the strict response schemas in `src/server/api/contract.ts`. Run
+> `pnpm openapi` after changing an endpoint. Tests fail if a route is undocumented, if the file is stale, or if
+> a real response does not match its schema. This page is the human guide; the JSON is the source of truth.
+
 ## Conventions
 
 - **Auth**: `Authorization: Bearer <token>`. Get a token from `POST /auth/google`. Tokens are Better Auth
@@ -81,8 +86,8 @@ Not yet notified: reschedules and reassignments, waitlist claims, failed fee cha
 
 ## Not built yet
 
-Waitlist, editing the roster and timesheets from the phone, and a generated OpenAPI document. See the phases in
-`docs/MOBILE.md`.
+Weekly roster patterns and timesheet entry editing or approval from the phone (they stay on the web, where
+a reason is recorded). See the phases in `docs/MOBILE.md`.
 
 ## Sign-in and the iOS client id
 

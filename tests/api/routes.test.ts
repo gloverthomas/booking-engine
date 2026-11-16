@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { DateTime } from "luxon";
 import { eq } from "drizzle-orm";
-import { booking, bookingService, payment } from "@/db/schema";
+import { booking, bookingService, payment, waitlistEntry } from "@/db/schema";
+import { OPERATIONS } from "@/server/api/openapi";
 import type { AccessContext } from "@/server/admin/access";
 import type { StaffRole } from "@/server/contracts";
 
@@ -75,6 +76,16 @@ import { POST as reschedule } from "@/app/api/v1/bookings/[id]/reschedule/route"
 import { GET as searchClients } from "@/app/api/v1/clients/route";
 import { GET as getClient } from "@/app/api/v1/clients/[id]/route";
 import { GET as getMe } from "@/app/api/v1/me/route";
+import { GET as listWaitlistRoute } from "@/app/api/v1/waitlist/route";
+import { DELETE as removeWaitlistRoute } from "@/app/api/v1/waitlist/[id]/route";
+import { GET as waitlistSlotsRoute } from "@/app/api/v1/waitlist/[id]/slots/route";
+import { POST as waitlistOfferRoute } from "@/app/api/v1/waitlist/[id]/offer/route";
+import {
+  GET as listExceptionsRoute,
+  POST as setExceptionRoute,
+} from "@/app/api/v1/roster/exceptions/route";
+import { DELETE as removeExceptionRoute } from "@/app/api/v1/roster/exceptions/[id]/route";
+import { GET as myWeekRoute } from "@/app/api/v1/timesheets/week/route";
 import { GET as rescheduleSlotsRoute } from "@/app/api/v1/bookings/[id]/reschedule-slots/route";
 import { GET as getRoster } from "@/app/api/v1/roster/route";
 import { GET as getClock } from "@/app/api/v1/timesheets/clock/route";
@@ -825,5 +836,569 @@ describe("reschedule slots", () => {
       (s: { start: string }) => s.start,
     );
     expect(starts).not.toContain(at(10).toUTC().toISO());
+  });
+});
+
+describe("waitlist", () => {
+  const ZONE = "Australia/Melbourne";
+  const inDays = (n: number) =>
+    DateTime.now().setZone(ZONE).plus({ days: n }).toISODate() as string;
+  let entryId: string;
+
+  beforeEach(async () => {
+    const [row] = await w.db
+      .insert(waitlistEntry)
+      .values({
+        clientId: w.clientId,
+        locationId: w.locationId,
+        serviceIds: [w.haircutId],
+        earliestDate: inDays(1),
+        latestDate: inDays(10),
+        expiresAt: DateTime.now().plus({ days: 11 }).toJSDate(),
+      })
+      .returning();
+    entryId = row.id;
+  });
+  const del = (id: string) =>
+    removeWaitlistRoute(new Request(`${ORIGIN}/x`, { method: "DELETE" }), ctx(id));
+
+  test("lists who is waiting, by name, with the services they want", async () => {
+    as("owner", w.staffId);
+    const { data } = await json(await listWaitlistRoute(req("/x")));
+    expect(data.entries).toHaveLength(1);
+    expect(data.entries[0]).toMatchObject({
+      id: entryId,
+      status: "waiting",
+      clientName: "Sam Client",
+      serviceNames: ["Maintenance Haircut"],
+      offers: [],
+    });
+    expect((await json(await listWaitlistRoute(req("/x?view=history")))).data.entries).toEqual([]);
+  });
+
+  test("owner, manager and reception can see it; a stylist cannot", async () => {
+    for (const role of ["owner", "manager", "reception"] as const) {
+      as(role, null);
+      expect((await listWaitlistRoute(req("/x"))).status).toBe(200);
+    }
+    as("stylist", w.staffId);
+    expect((await listWaitlistRoute(req("/x"))).status).toBe(403);
+    expect((await waitlistSlotsRoute(req("/x"), ctx(entryId))).status).toBe(403);
+  });
+
+  test("finds open times that suit them, then offers one", async () => {
+    as("owner", w.staffId);
+    const found = await json(await waitlistSlotsRoute(req("/x"), ctx(entryId)));
+    expect(found.data.timezone).toBe(ZONE);
+    expect(found.data.slots.length).toBeGreaterThan(0);
+    const slot = found.data.slots[0];
+    expect(slot.staffId).toBe(w.staffId);
+
+    const res = await waitlistOfferRoute(
+      req("/x", { staffId: slot.staffId, start: slot.start, end: slot.end }),
+      ctx(entryId),
+    );
+    expect(res.status).toBe(201);
+    expect((await json(res)).data.offerId).toBeTruthy();
+
+    const after = (await json(await listWaitlistRoute(req("/x")))).data.entries[0];
+    expect(after.status).toBe("offered");
+    expect(after.offers).toHaveLength(1);
+    expect(after.offers[0]).toMatchObject({ status: "sent", offeredBy: `owner:u-owner` });
+  });
+
+  test("offering a time that is not free is a 409, and a bad body a 422", async () => {
+    as("owner", w.staffId);
+    const taken = DateTime.now()
+      .setZone(ZONE)
+      .plus({ days: 3 })
+      .set({ hour: 3, minute: 0, second: 0, millisecond: 0 });
+    const res = await waitlistOfferRoute(
+      req("/x", {
+        staffId: w.staffId,
+        start: taken.toUTC().toISO(),
+        end: taken.plus({ minutes: 45 }).toUTC().toISO(),
+      }),
+      ctx(entryId),
+    );
+    expect([409, 422]).toContain(res.status);
+    expect((await waitlistOfferRoute(req("/x", { staffId: "nope" }), ctx(entryId))).status).toBe(
+      422,
+    );
+  });
+
+  test("removing someone takes them off the active list", async () => {
+    as("reception", null);
+    expect((await json(await del(entryId))).data).toEqual({ removed: true });
+    expect((await json(await listWaitlistRoute(req("/x")))).data.entries).toEqual([]);
+    expect(
+      (await json(await listWaitlistRoute(req("/x?view=history")))).data.entries[0].status,
+    ).toBe("cancelled");
+  });
+
+  test("an unknown or malformed id is a 404; signed out is 401", async () => {
+    as("owner", w.staffId);
+    expect((await waitlistSlotsRoute(req("/x"), ctx("not-a-uuid"))).status).toBe(404);
+    expect(
+      (await waitlistSlotsRoute(req("/x"), ctx("00000000-0000-4000-8000-000000000000"))).status,
+    ).toBe(404);
+    state.viewer = null;
+    expect((await listWaitlistRoute(req("/x"))).status).toBe(401);
+    expect((await del(entryId)).status).toBe(401);
+  });
+});
+
+describe("roster editing", () => {
+  const ZONE = "Australia/Melbourne";
+  const inDays = (n: number) =>
+    DateTime.now().setZone(ZONE).plus({ days: n }).toISODate() as string;
+  const del = (id: string) =>
+    removeExceptionRoute(new Request(`${ORIGIN}/x`, { method: "DELETE" }), ctx(id));
+
+  test("a day off appears in the exceptions list and in the roster", async () => {
+    as("owner", w.staffId);
+    const date = inDays(5);
+    const res = await setExceptionRoute(
+      req("/x", { kind: "off", staffId: otherStaffId, date, locationId: null, note: "Holiday" }),
+    );
+    expect(res.status).toBe(201);
+    expect((await json(res)).data).toMatchObject({ conflictingBookings: 0 });
+
+    const list = (await json(await listExceptionsRoute(req("/x")))).data.exceptions;
+    expect(list).toEqual([
+      expect.objectContaining({ staffId: otherStaffId, date, kind: "off", note: "Holiday" }),
+    ]);
+
+    const roster = (await json(await getRoster(req(`/x?week=${date}`)))).data;
+    const alex = roster.rows.find((r: { staffId: string }) => r.staffId === otherStaffId);
+    expect(alex.days.find((d: { date: string }) => d.date === date).off).toMatchObject({
+      note: "Holiday",
+      everywhere: true,
+    });
+  });
+
+  test("changed hours replace the weekly pattern for that day", async () => {
+    as("manager", null);
+    const date = inDays(6);
+    const res = await setExceptionRoute(
+      req("/x", {
+        kind: "custom",
+        staffId: w.staffId,
+        date,
+        locationId: w.locationId,
+        ranges: [{ startMinute: 600, endMinute: 900 }],
+      }),
+    );
+    expect(res.status).toBe(201);
+    const roster = (await json(await getRoster(req(`/x?week=${date}`)))).data;
+    const ryan = roster.rows.find((r: { staffId: string }) => r.staffId === w.staffId);
+    expect(ryan.days.find((d: { date: string }) => d.date === date).entries[0]).toMatchObject({
+      kind: "custom",
+      ranges: [{ startMinute: 600, endMinute: 900 }],
+    });
+  });
+
+  test("it warns how many existing bookings now fall outside the roster, but still makes the change", async () => {
+    as("owner", w.staffId);
+    const bookedOn = DateTime.fromJSDate(
+      (await w.db.select().from(booking).where(eq(booking.id, mine)))[0].during.start,
+      { zone: ZONE },
+    ).toISODate() as string;
+    const res = await setExceptionRoute(
+      req("/x", { kind: "off", staffId: w.staffId, date: bookedOn, locationId: null }),
+    );
+    expect(res.status).toBe(201);
+    expect((await json(res)).data.conflictingBookings).toBeGreaterThanOrEqual(1);
+  });
+
+  test("a past date and an impossible range are refused with the field named", async () => {
+    as("owner", w.staffId);
+    const past = await setExceptionRoute(
+      req("/x", { kind: "off", staffId: w.staffId, date: inDays(-3), locationId: null }),
+    );
+    expect(past.status).toBe(422);
+    expect((await json(past)).error.fields).toHaveProperty("date");
+    const backwards = await setExceptionRoute(
+      req("/x", {
+        kind: "custom",
+        staffId: w.staffId,
+        date: inDays(4),
+        locationId: w.locationId,
+        ranges: [{ startMinute: 900, endMinute: 600 }],
+      }),
+    );
+    expect(backwards.status).toBe(422);
+    expect((await setExceptionRoute(req("/x", { kind: "sideways" }))).status).toBe(422);
+  });
+
+  test("only owner and manager can edit; others are 403 and nothing is saved", async () => {
+    for (const [role, staffId] of [
+      ["stylist", w.staffId],
+      ["reception", null],
+    ] as const) {
+      as(role, staffId);
+      const res = await setExceptionRoute(
+        req("/x", { kind: "off", staffId: w.staffId, date: inDays(5), locationId: null }),
+      );
+      expect(res.status).toBe(403);
+    }
+    as("owner", w.staffId);
+    expect((await json(await listExceptionsRoute(req("/x")))).data.exceptions).toEqual([]);
+  });
+
+  test("a stylist can see their own days off but not a colleague's", async () => {
+    as("owner", w.staffId);
+    await setExceptionRoute(
+      req("/x", { kind: "off", staffId: w.staffId, date: inDays(5), locationId: null }),
+    );
+    await setExceptionRoute(
+      req("/x", { kind: "off", staffId: otherStaffId, date: inDays(6), locationId: null }),
+    );
+    as("stylist", w.staffId);
+    const own = (await json(await listExceptionsRoute(req("/x")))).data.exceptions;
+    expect(own.map((e: { staffId: string }) => e.staffId)).toEqual([w.staffId]);
+  });
+
+  test("removing an exception puts the weekly hours back; removing it twice is a 404", async () => {
+    as("owner", w.staffId);
+    await setExceptionRoute(
+      req("/x", { kind: "off", staffId: w.staffId, date: inDays(5), locationId: null }),
+    );
+    const [row] = (await json(await listExceptionsRoute(req("/x")))).data.exceptions;
+    expect((await del(row.id)).status).toBe(200);
+    expect((await json(await listExceptionsRoute(req("/x")))).data.exceptions).toEqual([]);
+    expect((await del(row.id)).status).toBe(404);
+  });
+
+  test("signed out is 401", async () => {
+    expect((await listExceptionsRoute(req("/x"))).status).toBe(401);
+    expect((await setExceptionRoute(req("/x", {}))).status).toBe(401);
+  });
+});
+
+describe("my hours", () => {
+  const weekOf = DateTime.now().setZone("Australia/Melbourne").toISODate() as string;
+
+  test("shows the signed-in person's week: hours rostered, and a shift they worked", async () => {
+    as("stylist", w.staffId);
+    await clockIn(req("/x", {}));
+    const { data } = await json(await myWeekRoute(req(`/x?week=${weekOf}`)));
+    expect(data.available).toBe(true);
+    expect(data.sheet.staffId).toBe(w.staffId);
+    expect(data.sheet.days).toHaveLength(7);
+    expect(data.sheet.rosteredMinutes).toBe(7 * 8 * 60);
+    expect(data.sheet.hasOpenEntry).toBe(true);
+  });
+
+  test("it is only ever their own week, whoever asks", async () => {
+    as("owner", w.staffId);
+    expect((await json(await myWeekRoute(req(`/x?week=${weekOf}`)))).data.sheet.staffId).toBe(
+      w.staffId,
+    );
+    as("stylist", otherStaffId);
+    expect((await json(await myWeekRoute(req(`/x?week=${weekOf}`)))).data.sheet.staffId).toBe(
+      otherStaffId,
+    );
+  });
+
+  test("a login with no staff profile has no timesheet, and a bad week is a 422", async () => {
+    as("owner", null);
+    expect((await json(await myWeekRoute(req("/x")))).data).toEqual({ available: false });
+    as("owner", w.staffId);
+    expect((await myWeekRoute(req("/x?week=whenever"))).status).toBe(422);
+  });
+
+  test("signed out is 401", async () => {
+    expect((await myWeekRoute(req("/x"))).status).toBe(401);
+  });
+});
+
+describe("response contract: real responses match the OpenAPI schemas", () => {
+  const ZONE = "Australia/Melbourne";
+  const inDays = (n: number) =>
+    DateTime.now().setZone(ZONE).plus({ days: n }).toISODate() as string;
+  const at = (hour: number) =>
+    DateTime.now()
+      .setZone(ZONE)
+      .plus({ days: 3 })
+      .set({ hour, minute: 0, second: 0, millisecond: 0 });
+
+  /** The response must satisfy the strict schema the document is generated from, and nothing else may be in the body. */
+  async function conforms(id: string, res: Response) {
+    const operation = OPERATIONS.find((o) => o.id === id);
+    expect(operation, `${id} is not in the registry`).toBeTruthy();
+    const body = await res.json();
+    expect(res.status, `${id}: ${JSON.stringify(body)}`).toBeLessThan(300);
+    if (operation?.response) {
+      const parsed = operation.response.safeParse(body.data);
+      expect(
+        parsed.success,
+        `${id}: ${parsed.success ? "" : JSON.stringify(parsed.error.issues, null, 2)}`,
+      ).toBe(true);
+      expect(Object.keys(body)).toEqual(["data"]);
+    } else {
+      expect(body).toEqual({});
+    }
+    return body.data;
+  }
+
+  test("session, resources and reads", async () => {
+    as("owner", w.staffId);
+    await conforms("me", await getMe());
+    await conforms("resources", await getResources(req("/x")));
+    const day = inDays(3);
+    await conforms(
+      "availability",
+      await getAvailability(
+        req(
+          `/x?locationId=${w.locationId}&serviceIds=${w.haircutId}&fromDate=${day}&toDate=${day}`,
+        ),
+      ),
+    );
+    const from = DateTime.now().minus({ days: 1 }).toUTC().toISO();
+    const to = DateTime.now().plus({ days: 10 }).toUTC().toISO();
+    const events = await conforms(
+      "calendar",
+      await getCalendar(req(`/x?from=${encodeURIComponent(from!)}&to=${encodeURIComponent(to!)}`)),
+    );
+    expect(events.events.length).toBeGreaterThan(0);
+    await conforms("listBookings", await listBookings(req("/x")));
+    await conforms("getBooking", await getBooking(req("/x"), ctx(mine)));
+    await conforms("searchClients", await searchClients(req("/x?q=sam")));
+    await conforms("getClient", await getClient(req("/x"), ctx(w.clientId)));
+  });
+
+  test("a booking with payments, messages and audit trail", async () => {
+    as("owner", w.staffId);
+    await w.db
+      .update(booking)
+      .set({ totalCents: 9500, depositCents: 4750 })
+      .where(eq(booking.id, mine));
+    await w.db.insert(payment).values({
+      bookingId: mine,
+      kind: "deposit",
+      method: "stripe_online",
+      status: "succeeded",
+      amountCents: 4750,
+      stripePaymentIntentId: "pi_c",
+    });
+    const detail = await conforms("getBooking", await getBooking(req("/x"), ctx(mine)));
+    expect(detail.payments).toHaveLength(1);
+    await conforms("getClient", await getClient(req("/x"), ctx(w.clientId)));
+  });
+
+  test("roster, exceptions and timesheets", async () => {
+    as("owner", w.staffId);
+    await conforms("roster", await getRoster(req("/x")));
+    const created = await conforms(
+      "setRosterException",
+      await setExceptionRoute(
+        req("/x", {
+          kind: "off",
+          staffId: otherStaffId,
+          date: inDays(5),
+          locationId: null,
+          note: "Away",
+        }),
+      ),
+    );
+    expect(created.ids).toHaveLength(1);
+    await conforms(
+      "setRosterException",
+      await setExceptionRoute(
+        req("/x", {
+          kind: "custom",
+          staffId: w.staffId,
+          date: inDays(6),
+          locationId: w.locationId,
+          ranges: [{ startMinute: 600, endMinute: 900 }],
+        }),
+      ),
+    );
+    const list = await conforms("listRosterExceptions", await listExceptionsRoute(req("/x")));
+    await conforms(
+      "removeRosterException",
+      await removeExceptionRoute(
+        new Request(`${ORIGIN}/x`, { method: "DELETE" }),
+        ctx(list.exceptions[0].id),
+      ),
+    );
+
+    as("stylist", w.staffId);
+    await conforms("clockState", await getClock(req("/x")));
+    await conforms("clockIn", await clockIn(req("/x", {})));
+    const open = await conforms("clockState", await getClock(req("/x")));
+    expect(open.open).not.toBeNull();
+    await conforms("clockOut", await clockOut(req("/x", { breakMinutes: 0 })));
+    const week = await conforms("myWeek", await myWeekRoute(req("/x")));
+    expect(week.available).toBe(true);
+    as("owner", null);
+    expect((await conforms("clockState", await getClock(req("/x")))).available).toBe(false);
+    expect((await conforms("myWeek", await myWeekRoute(req("/x")))).available).toBe(false);
+  });
+
+  test("waitlist", async () => {
+    as("owner", w.staffId);
+    const [entry] = await w.db
+      .insert(waitlistEntry)
+      .values({
+        clientId: w.clientId,
+        locationId: w.locationId,
+        serviceIds: [w.haircutId],
+        earliestDate: inDays(1),
+        latestDate: inDays(10),
+        weekdays: [1, 2, 3],
+        fromMinute: 540,
+        toMinute: 1020,
+        notes: "Mornings",
+        expiresAt: DateTime.now().plus({ days: 11 }).toJSDate(),
+      })
+      .returning();
+    const listed = await conforms("listWaitlist", await listWaitlistRoute(req("/x")));
+    expect(listed.entries[0].weekdays).toEqual([1, 2, 3]);
+    const found = await conforms(
+      "waitlistSlots",
+      await waitlistSlotsRoute(req("/x"), ctx(entry.id)),
+    );
+    const slot = found.slots[0];
+    await conforms(
+      "offerWaitlistSlot",
+      await waitlistOfferRoute(
+        req("/x", { staffId: slot.staffId, start: slot.start, end: slot.end }),
+        ctx(entry.id),
+      ),
+    );
+    const offered = await conforms("listWaitlist", await listWaitlistRoute(req("/x")));
+    expect(offered.entries[0].offers).toHaveLength(1);
+    await conforms(
+      "removeFromWaitlist",
+      await removeWaitlistRoute(new Request(`${ORIGIN}/x`, { method: "DELETE" }), ctx(entry.id)),
+    );
+  });
+
+  test("appointment actions", async () => {
+    as("owner", w.staffId);
+    await conforms(
+      "createBooking",
+      await createBooking(
+        req("/x", {
+          locationId: w.locationId,
+          serviceIds: [w.haircutId],
+          start: at(11).toUTC().toISO(),
+          client: { existingClientId: w.clientId },
+          notifyClient: false,
+        }),
+      ),
+    );
+    await conforms("cancelBooking", await cancel(req("/x", { depositMode: "keep" }), ctx(mine)));
+    await conforms("markNoShow", await noShow(req("/x", {}), ctx(mine)));
+    await conforms(
+      "rescheduleBooking",
+      await reschedule(
+        req("/x", { newStart: at(15).toUTC().toISO(), notifyClient: false }),
+        ctx(mine),
+      ),
+    );
+    await conforms(
+      "reassignBooking",
+      await reassign(req("/x", { newStaffId: otherStaffId, notifyClient: false }), ctx(mine)),
+    );
+    await w.db.update(booking).set({ totalCents: 9500 }).where(eq(booking.id, mine));
+    await conforms("checkoutBooking", await checkout(req("/x", { method: "cash" }), ctx(mine)));
+  });
+
+  test("reschedule slots", async () => {
+    as("owner", w.staffId);
+    const start = at(10);
+    const row = await addBooking(
+      w.db,
+      { ...w, staffId: w.staffId },
+      start.toJSDate(),
+      start.plus({ minutes: 45 }).toJSDate(),
+    );
+    await w.db.insert(bookingService).values({
+      bookingId: row.id,
+      serviceId: w.haircutId,
+      name: "Maintenance Haircut",
+      durationMin: 45,
+      priceCents: 9500,
+    });
+    const day = start.toFormat("yyyy-MM-dd");
+    const data = await conforms(
+      "rescheduleSlots",
+      await rescheduleSlotsRoute(req(`/x?fromDate=${day}&toDate=${day}`), ctx(row.id)),
+    );
+    expect(data.slots.length).toBeGreaterThan(0);
+    const imported = await addBooking(
+      w.db,
+      { ...w, staffId: w.staffId },
+      at(14).toJSDate(),
+      at(14).plus({ minutes: 45 }).toJSDate(),
+    );
+    await w.db.insert(bookingService).values({
+      bookingId: imported.id,
+      serviceId: null,
+      name: "Imported",
+      durationMin: 45,
+      priceCents: 9500,
+    });
+    expect(
+      (
+        await conforms(
+          "rescheduleSlots",
+          await rescheduleSlotsRoute(req(`/x?fromDate=${day}&toDate=${day}`), ctx(imported.id)),
+        )
+      ).reason,
+    ).toBe("services_not_in_catalogue");
+  });
+
+  test("payments and devices", async () => {
+    as("owner", w.staffId);
+    pay.location.mockReturnValue("tml_1");
+    pay.token.mockResolvedValue({ secret: "pst_1" });
+    pay.start.mockResolvedValue({
+      paymentId: "11111111-1111-4111-8111-111111111111",
+      paymentIntentId: "pi_1",
+      clientSecret: "pi_1_secret",
+      amountCents: 4750,
+    });
+    pay.status.mockResolvedValue({
+      status: "pending",
+      bookingStatus: "confirmed",
+      balanceDueCents: 4750,
+    });
+    await conforms("terminalConfig", await terminalConfig(req("/x")));
+    await conforms("connectionToken", await connectionToken(req("/x", {})));
+    await conforms("startCardPayment", await cardStart(req("/x", {}), ctx(mine)));
+    await conforms(
+      "cardPaymentStatus",
+      await cardStatus(req("/x?paymentId=11111111-1111-4111-8111-111111111111"), ctx(mine)),
+    );
+    await conforms(
+      "registerDevice",
+      await addDevice(req("/x", { token: "ExponentPushToken[abc123]" })),
+    );
+    await conforms(
+      "removeDevice",
+      await removeDevice(
+        new Request(`${ORIGIN}/api/v1/devices`, {
+          method: "DELETE",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ token: "ExponentPushToken[abc123]" }),
+        }),
+      ),
+    );
+  });
+
+  test("an error response matches the documented error shape", async () => {
+    const { errorResponse } = await import("@/server/api/contract");
+    state.viewer = null;
+    const res = await getMe();
+    expect(res.status).toBe(401);
+    expect(errorResponse.safeParse(await res.json()).success).toBe(true);
+    as("owner", w.staffId);
+    const bad = await createBooking(req("/x", {}));
+    expect(bad.status).toBe(422);
+    expect(errorResponse.safeParse(await bad.json()).success).toBe(true);
   });
 });

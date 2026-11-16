@@ -16,7 +16,8 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "openapi": "tsx scripts/openapi.ts"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.22",

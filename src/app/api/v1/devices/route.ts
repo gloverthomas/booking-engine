@@ -1,9 +1,7 @@
-import { z } from "zod";
+import { deviceBody } from "@/server/api/bodies";
 import { commandApi, parseBody } from "@/server/api/handler";
 import { ApiError } from "@/server/api/respond";
 import { registerDevice, unregisterDevice } from "@/server/push";
-
-const body = z.object({ token: z.string().trim().min(10).max(300) });
 
 /** Anyone who can sign in may receive notifications on their own phone. */
 const ANY_STAFF = ["calendar.viewAll", "calendar.viewOwn"] as const;
@@ -21,7 +19,7 @@ function ownStaffId(ctx: { access: { staffId: string | null } }): string {
  */
 export async function POST(request: Request) {
   return commandApi([...ANY_STAFF], request, async (ctx) => {
-    const { token } = await parseBody(request, body);
+    const { token } = await parseBody(request, deviceBody);
     await registerDevice(ctx.db, ownStaffId(ctx), token);
     return { registered: true };
   });
@@ -30,7 +28,7 @@ export async function POST(request: Request) {
 /** DELETE /api/v1/devices { token } : stop notifying this phone (sign-out). Safe to repeat. */
 export async function DELETE(request: Request) {
   return commandApi([...ANY_STAFF], request, async (ctx) => {
-    const { token } = await parseBody(request, body);
+    const { token } = await parseBody(request, deviceBody);
     await unregisterDevice(ctx.db, ownStaffId(ctx), token);
     return { registered: false };
   });

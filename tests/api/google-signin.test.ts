@@ -15,6 +15,7 @@ vi.mock("@/server/auth", () => ({
   getAuth: () => ({ api: { signInSocial: state.signIn, signOut: state.signOut } }),
 }));
 
+import { signInResponse, signOutResponse } from "@/server/api/contract";
 import { POST as signIn } from "@/app/api/v1/auth/google/route";
 import { POST as signOut } from "@/app/api/v1/auth/signout/route";
 
@@ -113,6 +114,8 @@ describe("POST /api/v1/auth/signout", () => {
     state.signOut.mockRejectedValue(new Error("no session"));
     const res = await signOut(new Request("http://localhost/x", { method: "POST" }));
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ signedOut: true });
+    const body = await res.json();
+    expect(signOutResponse.safeParse(body.data).success).toBe(true);
+    expect(body.data).toEqual({ signedOut: true });
   });
 });
