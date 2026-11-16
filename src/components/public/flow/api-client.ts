@@ -24,11 +24,8 @@ export interface HoldRequest {
     lastName: string;
     email: string;
     phone: string;
-    pronouns?: string;
     marketingOptIn: boolean;
   };
-  otherPhone?: string;
-  company?: string;
   bookedForOther: boolean;
   comments?: string;
   intakeAnswers: Record<string, string>;

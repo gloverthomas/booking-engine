@@ -7,9 +7,6 @@ export interface DetailsForm {
   lastName: string;
   email: string;
   phone: string;
-  pronouns: string;
-  otherPhone: string;
-  company: string;
   comments: string;
   bookedForOther: boolean;
   marketingOptIn: boolean;
@@ -22,9 +19,6 @@ export const EMPTY_DETAILS: DetailsForm = {
   lastName: "",
   email: "",
   phone: "",
-  pronouns: "",
-  otherPhone: "",
-  company: "",
   comments: "",
   bookedForOther: false,
   marketingOptIn: false,
@@ -56,9 +50,6 @@ export function validateDetails(
   }
   if (!details.phone.trim()) errors["client.phone"] = "Mobile number is required";
   else if (!looksLikePhone(details.phone)) errors["client.phone"] = "Enter a valid mobile number";
-  if (details.otherPhone.trim() && !looksLikePhone(details.otherPhone)) {
-    errors.otherPhone = "Enter a valid phone number";
-  }
   for (const svc of services) {
     for (const q of svc.intakeQuestions) {
       if (q.required && !details.intakeAnswers[q.id]?.trim()) {
@@ -82,9 +73,6 @@ export function toRemembered(details: DetailsForm): RememberedClient {
     lastName: details.lastName.trim(),
     email: details.email.trim(),
     phone: details.phone.trim(),
-    pronouns: details.pronouns.trim(),
-    otherPhone: details.otherPhone.trim(),
-    company: details.company.trim(),
   };
 }
 
@@ -114,11 +102,8 @@ export function buildHoldRequest(input: HoldRequestInput): HoldRequest {
       lastName: details.lastName.trim(),
       email: details.email.trim(),
       phone: details.phone.trim(),
-      pronouns: opt(details.pronouns),
       marketingOptIn: details.marketingOptIn,
     },
-    otherPhone: opt(details.otherPhone),
-    company: opt(details.company),
     bookedForOther: details.bookedForOther,
     comments: opt(details.comments),
     intakeAnswers: Object.fromEntries(

@@ -124,35 +124,6 @@ export function DetailsStep({
             error={errors["client.phone"]}
             onChange={(phone) => onChange({ phone })}
           />
-          <TextField
-            id="pronouns"
-            label="Pronouns"
-            optional
-            maxLength={40}
-            value={details.pronouns}
-            onChange={(pronouns) => onChange({ pronouns })}
-          />
-          <TextField
-            id="otherPhone"
-            label="Other phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            optional
-            value={details.otherPhone}
-            error={errors.otherPhone}
-            onChange={(otherPhone) => onChange({ otherPhone })}
-          />
-          <TextField
-            id="company"
-            label="Company"
-            autoComplete="organization"
-            optional
-            maxLength={100}
-            wide
-            value={details.company}
-            onChange={(company) => onChange({ company })}
-          />
         </div>
       </fieldset>
 

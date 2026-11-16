@@ -8,9 +8,6 @@ export interface RememberedClient {
   lastName: string;
   email: string;
   phone: string;
-  pronouns: string;
-  otherPhone: string;
-  company: string;
 }
 
 export const REMEMBERED_KEY = "rk.client.v1";
@@ -20,9 +17,6 @@ const FIELDS: Array<keyof RememberedClient> = [
   "lastName",
   "email",
   "phone",
-  "pronouns",
-  "otherPhone",
-  "company",
 ];
 
 type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;

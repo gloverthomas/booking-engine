@@ -128,9 +128,6 @@ describe("remembered client", () => {
     lastName: "Client",
     email: "sam@example.com",
     phone: "0410123456",
-    pronouns: "",
-    otherPhone: "",
-    company: "",
   };
 
   it("round-trips and forgets", () => {
@@ -208,12 +205,11 @@ describe("validateDetails and buildHoldRequest", () => {
       "policyAccepted",
     ]);
     const bad = validateDetails(
-      { ...good, email: "nope", phone: "12", otherPhone: "abc", intakeAnswers: { q1: "x" } },
+      { ...good, email: "nope", phone: "12", intakeAnswers: { q1: "x" } },
       services,
     );
     expect(bad["client.email"]).toBe("Enter a valid email address");
     expect(bad["client.phone"]).toBe("Enter a valid mobile number");
-    expect(bad.otherPhone).toBe("Enter a valid phone number");
   });
 
   it("builds a clean hold request without empty optionals", () => {
@@ -221,7 +217,7 @@ describe("validateDetails and buildHoldRequest", () => {
       locationId: LOC,
       serviceIds: [SVC_CUT],
       slotStart: "2026-11-20T03:30:00.000Z",
-      details: { ...good, pronouns: " ", comments: "hi", marketingOptIn: true },
+      details: { ...good, comments: "  hi  ", marketingOptIn: true },
       policyVersion: "1",
       turnstileToken: "tok",
     });
@@ -236,9 +232,9 @@ describe("validateDetails and buildHoldRequest", () => {
       policyAccepted: true,
       turnstileToken: "tok",
     });
-    expect(req.client.pronouns).toBeUndefined();
-    expect(req.otherPhone).toBeUndefined();
-    expect(req.company).toBeUndefined();
+    expect(req.client).not.toHaveProperty("pronouns");
+    expect(req).not.toHaveProperty("otherPhone");
+    expect(req).not.toHaveProperty("company");
   });
 });
 
