@@ -2,18 +2,13 @@
 
 > **Status (built, not yet run on a device).** The app is in
 > [booking-engine-mobile](https://github.com/gloverthomas/booking-engine-mobile) (Expo SDK 58) and talks to
-> the staff API in `docs/API.md`. Built and tested: Google sign-in, Today, appointment detail (cancel,
-> no-show, mark paid), create appointment, clients, **Tap to Pay** (server side and app), **push
-> notifications**. Everything is covered by automated tests, but **none of it has been run on an iPhone**:
-> that needs the accounts in section 5. Not built: reschedule UI, roster, clock in and out, waitlist,
-> a generated OpenAPI document. The plan below is the original; section 7 records what was decided.
-
-Repo for the app: <https://github.com/gloverthomas/booking-engine-mobile> (empty today). This file is the plan;
-the backend work it needs lands in this repo.
-
-Goal: Ryan and his stylists run the day from an iPhone. See the roster, create and cancel appointments on
-the fly, take payment with **Tap to Pay on iPhone**, and get notified. Customers keep using the web booking
-flow and the emailed manage link.
+> the staff API in `docs/API.md` (machine-readable: `docs/openapi.json`). Built and tested: Google sign-in,
+> Today, appointment detail (cancel, no-show, mark paid), create appointment, reschedule (including any time),
+> clients, Tap to Pay, push notifications, roster (and editing days off and changed hours), clock in and
+> out, my hours, and the waitlist. Everything is covered by automated tests, but **none of it has been run on
+> an iPhone**: that needs the accounts in section 5. Deliberately left on the web: weekly roster patterns,
+> and approving or fixing timesheet entries (a reason is recorded). The plan below is the original; section 7
+> records what was decided.
 
 ## 1. What exists today (checked against the code)
 
